@@ -1,0 +1,24 @@
+# Node dependencies
+node_modules/
+
+# Build outputs
+dist/
+
+# Editor / OS
+.vscode/
+.DS_Store
+
+# Env files - ignore any .env* inside apps/api and apps/web
+apps/api/.env*
+apps/web/.env*
+
+# Logs
+logs/
+*.log
+
+# Optional npm cache
+.npm
+
+# Lock files (if you'd like to ignore locks uncomment)
+# package-lock.json
+# yarn.lock
