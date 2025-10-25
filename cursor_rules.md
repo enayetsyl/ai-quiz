@@ -73,6 +73,8 @@ Below are workspace rules, conventions, and guardrails to align development with
 
     - Shared types in `packages/*` and generate SDK for frontend consumption.
     - Validate inputs with Zod; avoid catching errors silently.
+    - **No `any` rule:** Do not use `any` in the codebase. Prefer explicit typing and typed helper wrappers. For library type mismatches (e.g., `pino` + `pino-http`), use correctly-parameterized generic types rather than `any`.
+    - Example: prefer `import pino, { Logger as PinoLogger } from 'pino'; const logger: PinoLogger<never, boolean> = pino(...)` over casting to `any`.
 
 15. Localization
 
