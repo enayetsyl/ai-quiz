@@ -9,6 +9,21 @@ async function main() {
     update: {},
     create: { id: 1 },
   });
+  console.log("Seeding class levels 6-10 if missing...");
+  const classLevels = [
+    { id: 6, displayName: "Class 6" },
+    { id: 7, displayName: "Class 7" },
+    { id: 8, displayName: "Class 8" },
+    { id: 9, displayName: "Class 9" },
+    { id: 10, displayName: "Class 10" },
+  ];
+  for (const cls of classLevels) {
+    await prisma.classLevel.upsert({
+      where: { id: cls.id },
+      update: { displayName: cls.displayName },
+      create: { id: cls.id, displayName: cls.displayName },
+    });
+  }
   console.log("Seed complete.");
 }
 

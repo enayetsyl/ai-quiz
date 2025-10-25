@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { UserRoutes } from "../module/User/user.route";
 import { SettingsRoutes } from "../module/Settings/settings.route";
+import { TaxonomyRoutes } from "../module/Taxonomy/taxonomy.route";
 
 const router = Router();
 
@@ -12,6 +13,10 @@ const moduleRoutes = [
   {
     path: "/admin/settings",
     route: SettingsRoutes,
+  },
+  {
+    path: "/taxonomy",
+    route: TaxonomyRoutes,
   },
   // TODO: add necessary path and route entries to this array
 ];

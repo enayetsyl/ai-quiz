@@ -1,11 +1,9 @@
-import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcrypt";
 import crypto from "crypto";
 import jwtLib from "../../lib/jwt";
 import { sendMail } from "../../lib/email";
 import { HttpError } from "../../lib/http";
-
-const prisma = new PrismaClient();
+import prisma from "../../lib";
 const SALT_ROUNDS = 12;
 
 export async function registerUser(email: string, password: string) {

@@ -73,6 +73,9 @@ Below are workspace rules, conventions, and guardrails to align development with
 
     - Shared types in `packages/*` and generate SDK for frontend consumption.
     - Validate inputs with Zod; avoid catching errors silently.
+    - Use `catchAsync` for async route handlers to forward errors to the global error handler instead of try/catch blocks.
+    - Use `sendResponse(res, {...})` from `apps/api/src/lib/http.ts` for all route responses instead of `res.json`.
+    - Throw or forward `HttpError` (from `apps/api/src/lib/http.ts`) for HTTP-level errors so the global error handler can format them consistently.
     - **No `any` rule:** Do not use `any` in the codebase. Prefer explicit typing and typed helper wrappers. For library type mismatches (e.g., `pino` + `pino-http`), use correctly-parameterized generic types rather than `any`.
     - Example: prefer `import pino, { Logger as PinoLogger } from 'pino'; const logger: PinoLogger<never, boolean> = pino(...)` over casting to `any`.
 
