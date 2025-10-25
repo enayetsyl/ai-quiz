@@ -1,6 +1,8 @@
 import express from "express";
 import helmet from "helmet";
 import { logger, requestLogger } from "./lib/logger";
+import { sendResponse, HttpError } from "./lib/http";
+import errorHandler from "./middleware/errorHandler";
 
 const app = express();
 
@@ -12,17 +14,29 @@ app.use(requestLogger);
 
 // simple health endpoint
 app.get("/healthz", (req, res) => {
-  res.json({ status: "ok" });
+  return sendResponse(res, {
+    success: true,
+    data: { status: "ok" },
+    message: "ok",
+  });
 });
 
 // example router placeholder
 app.get("/", (req, res) => {
-  res.json({ message: "Quiz Tuition API" });
+  return sendResponse(res, {
+    success: true,
+    data: { message: "Quiz Tuition API" },
+    message: "Welcome",
+  });
 });
 
 // 404 handler
-app.use((req, res) => {
-  res.status(404).json({ error: "Not Found" });
+app.use((req, res, next) => {
+  // create a structured 404 error to be handled by error middleware
+  next(new HttpError("Not Found", 404, "not_found"));
 });
+
+// Global error handler (must come after all routes/middleware)
+app.use(errorHandler);
 
 export default app;
