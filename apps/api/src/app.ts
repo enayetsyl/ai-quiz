@@ -1,4 +1,5 @@
 import express from "express";
+import cookieParser from "cookie-parser";
 import helmet from "helmet";
 import { logger, requestLogger } from "./lib/logger";
 import { sendResponse, HttpError } from "./lib/http";
@@ -9,6 +10,8 @@ const app = express();
 
 app.use(helmet());
 app.use(express.json({ limit: "10mb" }));
+// parse cookies for auth flows
+app.use(cookieParser());
 
 // CORS whitelist (simple custom middleware to avoid adding external dependency)
 const whitelist = ["http://localhost:3000"];
