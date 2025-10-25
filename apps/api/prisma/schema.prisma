@@ -1,0 +1,325 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider          = "postgresql"
+  url               = env("DATABASE_URL")
+  shadowDatabaseUrl = env("SHADOW_DATABASE_URL")
+}
+
+enum UserRole {
+  admin
+  approver
+
+  @@map("user_role")
+}
+
+enum QuestionStatus {
+  not_checked
+  approved
+  rejected
+  needs_fix
+
+  @@map("question_status")
+}
+
+enum DifficultyLevel {
+  easy
+  medium
+  hard
+
+  @@map("difficulty_level")
+}
+
+enum PageStatus {
+  pending
+  queued
+  generating
+  complete
+  failed
+
+  @@map("page_status")
+}
+
+enum OptionKey {
+  a
+  b
+  c
+  d
+
+  @@map("option_key")
+}
+
+enum LanguageCode {
+  bn
+  en
+
+  @@map("language_code")
+}
+
+model ClassLevel {
+  id          Int        @id @db.SmallInt
+  displayName String     @map("display_name")
+  subjectCounters SubjectCounter[]
+  subjects    Subject[]
+  uploads     Upload[]
+  questions   Question[] @relation("ClassLevelQuestions")
+  questionBank QuestionBank[] @relation("ClassLevelQuestionBank")
+
+  @@map("class_levels")
+}
+
+model Subject {
+  id         String        @id @default(uuid()) @db.Uuid
+  classId    Int           @map("class_id") @db.SmallInt
+  name       String
+  code       String?       @db.Text
+  createdAt  DateTime      @map("created_at") @default(now()) @db.Timestamptz(6)
+  updatedAt  DateTime      @map("updated_at") @default(now()) @db.Timestamptz(6)
+  class      ClassLevel    @relation(fields: [classId], references: [id])
+  chapters   Chapter[]
+  uploads    Upload[]
+  questions  Question[]
+  questionBank QuestionBank[]
+  subjectCounters SubjectCounter[]
+
+  @@unique([classId, name], map: "uq_subject_per_class")
+  @@map("subjects")
+}
+
+model Chapter {
+  id        String       @id @default(uuid()) @db.Uuid
+  subjectId String       @map("subject_id") @db.Uuid
+  name      String
+  ordinal   Int
+  createdAt DateTime     @map("created_at") @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime     @map("updated_at") @default(now()) @db.Timestamptz(6)
+  subject   Subject      @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  uploads   Upload[]
+  questions Question[]
+  questionBank QuestionBank[]
+
+  @@unique([subjectId, ordinal], map: "uq_chapter_ordinal_per_subject")
+  @@map("chapters")
+}
+
+model User {
+  id           String               @id @default(uuid()) @db.Uuid
+  email        String               @unique @db.Text
+  passwordHash String               @map("password_hash")
+  role         UserRole
+  isActive     Boolean              @map("is_active") @default(true)
+  createdAt    DateTime             @map("created_at") @default(now()) @db.Timestamptz(6)
+  updatedAt    DateTime             @map("updated_at") @default(now()) @db.Timestamptz(6)
+  lastLoginAt  DateTime?            @map("last_login_at") @db.Timestamptz(6)
+  resetTokens  PasswordResetToken[]
+  uploads      Upload[]             @relation("UploadedByUser")
+  questionsCreated Question[]       @relation("QuestionCreatedBy")
+  questionsReviewed Question[]      @relation("QuestionReviewedBy")
+  questionBankAdded QuestionBank[]  @relation("QuestionBankAddedBy")
+  apiTokens    ApiToken[]           @relation("ApiTokenCreatedBy")
+
+  @@map("users")
+}
+
+model PasswordResetToken {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  tokenHash String   @map("token_hash") @unique
+  expiresAt DateTime @map("expires_at") @db.Timestamptz(6)
+  usedAt    DateTime? @map("used_at") @db.Timestamptz(6)
+  createdAt DateTime @map("created_at") @default(now()) @db.Timestamptz(6)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("password_reset_tokens")
+}
+
+model AppSettings {
+  id                    Int      @id @default(1) @db.SmallInt
+  rpmCap                Int      @map("rpm_cap") @default(30)
+  workerConcurrency     Int      @map("worker_concurrency") @default(5) @db.SmallInt
+  queueProvider         String   @map("queue_provider") @default("bullmq")
+  rateLimitSafetyFactor Float    @map("rate_limit_safety_factor") @default(0.8) @db.Real
+  tokenEstimateInitial  Int      @map("token_estimate_initial") @default(3000)
+  apiBearerTokenHash    String?  @map("api_bearer_token_hash")
+  updatedAt             DateTime @map("updated_at") @default(now()) @db.Timestamptz(6)
+
+  @@map("app_settings")
+}
+
+model ApiToken {
+  id        String  @id @default(uuid()) @db.Uuid
+  name      String
+  tokenHash String  @map("token_hash") @unique
+  isActive  Boolean @map("is_active") @default(true)
+  createdBy String? @map("created_by") @db.Uuid
+  createdAt DateTime @map("created_at") @default(now()) @db.Timestamptz(6)
+  createdByUser User? @relation("ApiTokenCreatedBy", fields: [createdBy], references: [id], onDelete: SetNull)
+
+  @@map("api_tokens")
+}
+
+model Upload {
+  id               String    @id @default(uuid()) @db.Uuid
+  classId          Int       @map("class_id") @db.SmallInt
+  subjectId        String    @map("subject_id") @db.Uuid
+  chapterId        String    @map("chapter_id") @db.Uuid
+  uploadedBy       String?   @map("uploaded_by") @db.Uuid
+  originalFilename String    @map("original_filename")
+  mimeType         String    @map("mime_type")
+  s3Bucket         String    @map("s3_bucket")
+  s3PdfKey         String    @map("s3_pdf_key")
+  pagesCount       Int       @map("pages_count")
+  fileMeta         Json      @map("file_meta")
+  createdAt        DateTime  @map("created_at") @default(now()) @db.Timestamptz(6)
+  class            ClassLevel @relation(fields: [classId], references: [id])
+  subject          Subject    @relation(fields: [subjectId], references: [id])
+  chapter          Chapter    @relation(fields: [chapterId], references: [id])
+  uploadedByUser   User?      @relation("UploadedByUser", fields: [uploadedBy], references: [id], onDelete: SetNull)
+  pages            Page[]
+
+  @@index([chapterId], map: "idx_uploads_chapter")
+  @@index([createdAt], map: "idx_uploads_created_at")
+  @@map("uploads")
+}
+
+model Page {
+  id             String        @id @default(uuid()) @db.Uuid
+  uploadId       String        @map("upload_id") @db.Uuid
+  pageNumber     Int           @map("page_number")
+  language       LanguageCode?
+  status         PageStatus    @default(pending)
+  s3PngKey       String        @map("s3_png_key")
+  s3ThumbKey     String        @map("s3_thumb_key")
+  lastGeneratedAt DateTime?    @map("last_generated_at") @db.Timestamptz(6)
+  createdAt      DateTime      @map("created_at") @default(now()) @db.Timestamptz(6)
+  updatedAt      DateTime      @map("updated_at") @default(now()) @db.Timestamptz(6)
+  upload         Upload        @relation(fields: [uploadId], references: [id], onDelete: Cascade)
+  questions      Question[]
+  pageGenerationAttempts PageGenerationAttempt[]
+  llmUsageEvents LlmUsageEvent[]
+  questionBankEntries QuestionBank[] @relation("PageQuestionBank")
+
+  @@unique([uploadId, pageNumber], map: "uq_page_per_upload")
+  @@index([uploadId], map: "idx_pages_upload")
+  @@index([status], map: "idx_pages_status")
+  @@map("pages")
+}
+
+model Question {
+  id                String          @id @default(uuid()) @db.Uuid
+  pageId            String          @map("page_id") @db.Uuid
+  classId           Int             @map("class_id") @db.SmallInt
+  subjectId         String          @map("subject_id") @db.Uuid
+  chapterId         String          @map("chapter_id") @db.Uuid
+  language          LanguageCode
+  difficulty        DifficultyLevel
+  stem              String
+  optionA           String          @map("option_a")
+  optionB           String          @map("option_b")
+  optionC           String          @map("option_c")
+  optionD           String          @map("option_d")
+  correctOption     OptionKey       @map("correct_option")
+  explanation       String
+  status            QuestionStatus  @default(not_checked)
+  lineIndex         Int             @map("line_index")
+  isLockedAfterAdd  Boolean         @map("is_locked_after_add") @default(false)
+  createdBy         String?         @map("created_by") @db.Uuid
+  reviewedBy        String?         @map("reviewed_by") @db.Uuid
+  createdAt         DateTime        @map("created_at") @default(now()) @db.Timestamptz(6)
+  updatedAt         DateTime        @map("updated_at") @default(now()) @db.Timestamptz(6)
+  page              Page            @relation(fields: [pageId], references: [id], onDelete: Cascade)
+  class             ClassLevel      @relation("ClassLevelQuestions", fields: [classId], references: [id])
+  subject           Subject         @relation(fields: [subjectId], references: [id])
+  chapter           Chapter         @relation(fields: [chapterId], references: [id])
+  createdByUser     User?           @relation("QuestionCreatedBy", fields: [createdBy], references: [id], onDelete: SetNull)
+  reviewedByUser    User?           @relation("QuestionReviewedBy", fields: [reviewedBy], references: [id], onDelete: SetNull)
+  questionBankCopies QuestionBank[] @relation("QuestionSource")
+
+  @@unique([pageId, lineIndex], map: "uq_line_index_per_page")
+  @@index([pageId], map: "idx_questions_page")
+  @@index([status], map: "idx_questions_status")
+  @@index([classId, subjectId, chapterId, status], map: "idx_questions_taxonomy_status")
+  @@map("questions")
+}
+
+model QuestionBank {
+  id               String          @id @default(uuid()) @db.Uuid
+  sourceQuestionId String?         @map("source_question_id") @db.Uuid
+  classId          Int             @map("class_id") @db.SmallInt
+  subjectId        String          @map("subject_id") @db.Uuid
+  chapterId        String          @map("chapter_id") @db.Uuid
+  pageId           String?         @map("page_id") @db.Uuid
+  language         LanguageCode
+  difficulty       DifficultyLevel
+  stem             String
+  optionA          String          @map("option_a")
+  optionB          String          @map("option_b")
+  optionC          String          @map("option_c")
+  optionD          String          @map("option_d")
+  correctOption    OptionKey       @map("correct_option")
+  explanation      String
+  addedBy          String?         @map("added_by") @db.Uuid
+  createdAt        DateTime        @map("created_at") @default(now()) @db.Timestamptz(6)
+  seqNo            Int?            @map("seq_no")
+  subjShortCode    String?         @map("subj_short_code")
+  sourceQuestion   Question?       @relation("QuestionSource", fields: [sourceQuestionId], references: [id], onDelete: SetNull)
+  class            ClassLevel      @relation("ClassLevelQuestionBank", fields: [classId], references: [id])
+  subject          Subject         @relation(fields: [subjectId], references: [id])
+  chapter          Chapter         @relation(fields: [chapterId], references: [id])
+  page             Page?           @relation("PageQuestionBank", fields: [pageId], references: [id], onDelete: SetNull)
+  addedByUser      User?           @relation("QuestionBankAddedBy", fields: [addedBy], references: [id], onDelete: SetNull)
+
+  @@index([classId, subjectId, chapterId], map: "idx_qb_taxonomy")
+  @@index([createdAt], map: "idx_qb_created_at")
+  @@unique([classId, subjectId, seqNo], map: "uq_qb_seq_per_subject_class")
+  @@unique([subjShortCode], map: "uq_qb_subj_short_code")
+  @@map("question_bank")
+}
+
+model PageGenerationAttempt {
+  id              String   @id @default(uuid()) @db.Uuid
+  pageId          String   @map("page_id") @db.Uuid
+  attemptNo       Int      @map("attempt_no") @db.SmallInt
+  model           String
+  promptVersion   String   @map("prompt_version")
+  isSuccess       Boolean  @map("is_success") @default(false)
+  errorMessage    String?  @map("error_message")
+  requestExcerpt  String?  @map("request_excerpt")
+  responseExcerpt String?  @map("response_excerpt")
+  createdAt       DateTime @map("created_at") @default(now()) @db.Timestamptz(6)
+  page            Page     @relation(fields: [pageId], references: [id], onDelete: Cascade)
+  llmUsageEvents  LlmUsageEvent[]
+
+  @@unique([pageId, attemptNo], map: "uq_attempt_per_page")
+  @@index([pageId], map: "idx_attempts_page")
+  @@index([createdAt], map: "idx_attempts_created_at")
+  @@map("page_generation_attempts")
+}
+
+model LlmUsageEvent {
+  id             String    @id @default(uuid()) @db.Uuid
+  pageId         String?   @map("page_id") @db.Uuid
+  attemptId      String?   @map("attempt_id") @db.Uuid
+  model          String
+  tokensIn       Int?      @map("tokens_in")
+  tokensOut      Int?      @map("tokens_out")
+  estimatedCostUsd Decimal? @map("estimated_cost_usd") @db.Decimal(10, 5)
+  createdAt      DateTime  @map("created_at") @default(now()) @db.Timestamptz(6)
+  page           Page?     @relation(fields: [pageId], references: [id], onDelete: SetNull)
+  attempt        PageGenerationAttempt? @relation(fields: [attemptId], references: [id], onDelete: SetNull)
+
+  @@map("llm_usage_events")
+}
+
+model SubjectCounter {
+  classId   Int    @map("class_id") @db.SmallInt
+  subjectId String @map("subject_id") @db.Uuid
+  nextVal   Int    @map("next_val") @default(1)
+  subject   Subject @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  class     ClassLevel @relation(fields: [classId], references: [id])
+
+  @@id([classId, subjectId])
+  @@map("subject_counters")
+}
