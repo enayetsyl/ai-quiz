@@ -50,6 +50,21 @@ async function handleAnalyzeAndRasterize(job: Job) {
   try {
     logger.info({ uploadId }, "Starting analyze_and_rasterize");
     const pdfBuffer = await downloadToBuffer(s3PdfKey);
+
+    // validate PDF signature
+    try {
+      const header = pdfBuffer.slice(0, 5).toString("utf8");
+      if (!header.startsWith("%PDF")) {
+        await prisma.upload.update({
+          where: { id: uploadId },
+          data: { fileMeta: { invalidPdf: true } as any },
+        });
+        throw new Error("Downloaded file is not a valid PDF");
+      }
+    } catch (err) {
+      logger.error({ uploadId, err }, "Invalid PDF");
+      throw err;
+    }
     const localPdfPath = path.join(tmpDir, "original.pdf");
     await fs.writeFile(localPdfPath, pdfBuffer);
 
@@ -74,7 +89,7 @@ async function handleAnalyzeAndRasterize(job: Job) {
       data: { pagesCount: pages },
     });
 
-    // create page rows and enqueue per-page processing tasks by adding jobs for page rasterization
+    // create page rows and process pages sequentially, logging attempts on failure
     for (let p = 1; p <= pages; p++) {
       const pageRow = await prisma.page.create({
         data: {
@@ -86,32 +101,77 @@ async function handleAnalyzeAndRasterize(job: Job) {
         },
       });
 
-      // rasterize single page (synchronously here for simplicity)
       const outPrefix = path.join(tmpDir, `page-${p}`);
-      await pdftoppmPage(localPdfPath, outPrefix, p);
-      const pngPath = `${outPrefix}-${p}.png`;
-      const pngBuffer = await fs.readFile(pngPath);
+      const pageStart = Date.now();
+      try {
+        // rasterize single page
+        await pdftoppmPage(localPdfPath, outPrefix, p);
+        const pngPath = `${outPrefix}-${p}.png`;
+        const pngBuffer = await fs.readFile(pngPath);
 
-      const pngKey = `uploads/${uploadId}/pages/${p}.png`;
-      await uploadBuffer(pngBuffer, pngKey, "image/png");
+        const pngKey = `uploads/${uploadId}/pages/${p}.png`;
+        await uploadBuffer(pngBuffer, pngKey, "image/png");
 
-      // create thumbnail as JPEG
-      const thumbBuffer = await sharp(pngBuffer)
-        .resize({ width: 400 })
-        .jpeg({ quality: 80 })
-        .toBuffer();
-      const thumbKey = `uploads/${uploadId}/pages/${p}_thumb.jpg`;
-      await uploadBuffer(thumbBuffer, thumbKey, "image/jpeg");
+        // create thumbnail as JPEG
+        const thumbBuffer = await sharp(pngBuffer)
+          .resize({ width: 400 })
+          .jpeg({ quality: 80 })
+          .toBuffer();
+        const thumbKey = `uploads/${uploadId}/pages/${p}_thumb.jpg`;
+        await uploadBuffer(thumbBuffer, thumbKey, "image/jpeg");
 
-      await prisma.page.update({
-        where: { id: pageRow.id },
-        data: {
-          s3PngKey: pngKey,
-          s3ThumbKey: thumbKey,
-          status: "complete" as any,
-          lastGeneratedAt: new Date(),
-        },
-      });
+        await prisma.page.update({
+          where: { id: pageRow.id },
+          data: {
+            s3PngKey: pngKey,
+            s3ThumbKey: thumbKey,
+            status: "complete" as any,
+            lastGeneratedAt: new Date(),
+          },
+        });
+
+        // record success attempt
+        const lastAttempt = await prisma.pageGenerationAttempt.findFirst({
+          where: { pageId: pageRow.id },
+          orderBy: { attemptNo: "desc" },
+        });
+        const attemptNo = (lastAttempt?.attemptNo ?? 0) + 1;
+        await prisma.pageGenerationAttempt.create({
+          data: {
+            pageId: pageRow.id,
+            attemptNo,
+            model: "rasterize",
+            isSuccess: true,
+          } as any,
+        });
+
+        logger.info(
+          { uploadId, page: p, durationMs: Date.now() - pageStart },
+          "Page rasterized"
+        );
+      } catch (err: any) {
+        // log attempt
+        const lastAttempt = await prisma.pageGenerationAttempt.findFirst({
+          where: { pageId: pageRow.id },
+          orderBy: { attemptNo: "desc" },
+        });
+        const attemptNo = (lastAttempt?.attemptNo ?? 0) + 1;
+        await prisma.pageGenerationAttempt.create({
+          data: {
+            pageId: pageRow.id,
+            attemptNo,
+            model: "rasterize",
+            isSuccess: false,
+            errorMessage: err?.message ?? String(err),
+          } as any,
+        });
+        await prisma.page.update({
+          where: { id: pageRow.id },
+          data: { status: "failed" as any },
+        });
+        logger.error({ uploadId, page: p, err }, "Page rasterization failed");
+        // continue to next page
+      }
     }
 
     logger.info({ uploadId, pages }, "Rasterization complete");
@@ -125,11 +185,102 @@ async function handleAnalyzeAndRasterize(job: Job) {
   }
 }
 
+async function handleRasterizePage(job: Job) {
+  const { uploadId, s3PdfKey, pageNumber, pageId } = job.data as {
+    uploadId: string;
+    s3PdfKey: string;
+    pageNumber: number;
+    pageId: string;
+  };
+  const tmpDir = await fs.mkdtemp(
+    path.join(os.tmpdir(), `rpage-${uploadId}-${pageNumber}-`)
+  );
+  try {
+    logger.info({ uploadId, page: pageNumber }, "Starting rasterize_page");
+    const pdfBuffer = await downloadToBuffer(s3PdfKey);
+    const localPdfPath = path.join(tmpDir, "original.pdf");
+    await fs.writeFile(localPdfPath, pdfBuffer);
+
+    // rasterize single page
+    const outPrefix = path.join(tmpDir, `page-${pageNumber}`);
+    const pageStart = Date.now();
+    try {
+      await pdftoppmPage(localPdfPath, outPrefix, pageNumber);
+      const pngPath = `${outPrefix}-${pageNumber}.png`;
+      const pngBuffer = await fs.readFile(pngPath);
+
+      const pngKey = `uploads/${uploadId}/pages/${pageNumber}.png`;
+      await uploadBuffer(pngBuffer, pngKey, "image/png");
+
+      const thumbBuffer = await sharp(pngBuffer)
+        .resize({ width: 400 })
+        .jpeg({ quality: 80 })
+        .toBuffer();
+      const thumbKey = `uploads/${uploadId}/pages/${pageNumber}_thumb.jpg`;
+      await uploadBuffer(thumbBuffer, thumbKey, "image/jpeg");
+
+      await prisma.page.update({
+        where: { id: pageId },
+        data: {
+          s3PngKey: pngKey,
+          s3ThumbKey: thumbKey,
+          status: "complete" as any,
+          lastGeneratedAt: new Date(),
+        },
+      });
+
+      const lastAttempt = await prisma.pageGenerationAttempt.findFirst({
+        where: { pageId },
+        orderBy: { attemptNo: "desc" },
+      });
+      const attemptNo = (lastAttempt?.attemptNo ?? 0) + 1;
+      await prisma.pageGenerationAttempt.create({
+        data: { pageId, attemptNo, model: "rasterize", isSuccess: true } as any,
+      });
+
+      logger.info(
+        { uploadId, page: pageNumber, durationMs: Date.now() - pageStart },
+        "Rasterize page complete"
+      );
+    } catch (err: any) {
+      const lastAttempt = await prisma.pageGenerationAttempt.findFirst({
+        where: { pageId },
+        orderBy: { attemptNo: "desc" },
+      });
+      const attemptNo = (lastAttempt?.attemptNo ?? 0) + 1;
+      await prisma.pageGenerationAttempt.create({
+        data: {
+          pageId,
+          attemptNo,
+          model: "rasterize",
+          isSuccess: false,
+          errorMessage: err?.message ?? String(err),
+        } as any,
+      });
+      await prisma.page.update({
+        where: { id: pageId },
+        data: { status: "failed" as any },
+      });
+      logger.error(
+        { uploadId, page: pageNumber, err },
+        "Rasterize page failed"
+      );
+    }
+  } finally {
+    try {
+      await fs.rm(tmpDir, { recursive: true, force: true });
+    } catch (err) {
+      logger.warn({ err }, "Failed to cleanup temp dir for page job");
+    }
+  }
+}
+
 const worker = new Worker(
   "rasterize",
   async (job) => {
     if (job.name === "analyze_and_rasterize")
       return handleAnalyzeAndRasterize(job);
+    if (job.name === "rasterize_page") return handleRasterizePage(job);
     return;
   },
   {
