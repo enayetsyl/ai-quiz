@@ -79,7 +79,7 @@ Build an internal web application to (a) ingest chapter-wise NCTB PDFs, (b) rast
 **Retry Policy**
 - Max **3 attempts** per page; failed attempts include validation failures.
 - **Backoff:** 5s, 15s, 45s (+ jitter).
-- **Rate limit:** **30 RPM** global cap.
+- **Rate limit:** **adaptive multi-model cap (§21)**.
 - **On repeated failure:** Store full error context (model, prompt version, request/response excerpts, attempt count, timestamps). Editors can **requeue** failed pages.
 
 ---
@@ -381,4 +381,71 @@ SAFETY_FACTOR="0.8"
 - Short runbook (backup/restore, token rotate, envs)
 
 ---
+
+## 21) Adaptive Multi‑Model Rate Limiting (Gemini)
+
+**Last updated:** 2025-10-26 14:13 UTC
+
+**Purpose.** Replace fixed per‑minute caps with a scheduler that *maximizes throughput* while respecting each model’s **RPM** (requests/min), **TPM** (tokens/min), and **RPD** (requests/day) limits. This section supersedes any earlier fixed "30 RPM" references.
+
+### Models & priorities
+1) **Gemini 2.5 Flash** — **10 RPM**, **250,000 TPM**, **250 RPD** (primary)  
+2) **Gemini 2.5 Flash‑Lite** — **15 RPM**, **250,000 TPM**, **1,000 RPD** (fallback)  
+3) **Gemini 2.0 Flash** — **15 RPM**, **1,000,000 TPM**, **200 RPD** (final normal fallback)  
+4) **Gemini 2.5 Pro** — **5 RPM**, **125,000 TPM**, **100 RPD** (**only** for pages that failed **≥2** times)
+
+### Buckets & counters
+We maintain buckets per model **m**:
+- **Request/min bucket Aₘ** (RPM): fill‑rate `RPMₘ` / minute, capacity `RPMₘ`.
+- **Token/min bucket Bₘ** (TPM): fill‑rate `TPMₘ` / minute, capacity `TPMₘ`.
+- **Daily request bucket Cₘ** (RPD): adaptive fill‑rate `rpd_rateₘ = (RPDₘ − used_todayₘ) / minutes_left_today` (clamped ≥ 0), capacity `RPDₘ`.
+
+A request on model **m** requires: **1** token from Aₘ, **T_eff** tokens from Bₘ, and **1** token from Cₘ.
+
+**T_eff (effective tokens/request)** = `ceil(safety_factor × rolling_avg(input_tokens + output_tokens))`.  
+- **safety_factor** default `1.2` (configurable).  
+- `rolling_avg` computed over the last N (e.g., 100) page requests per model.
+
+### Effective RPM per model (informational)
+At any moment, the scheduler’s *admissible* per‑minute rate for a model **m** is:
+```
+rpm_by_rpmₘ = RPMₘ
+rpm_by_tpmₘ = floor(TPMₘ / T_eff)
+rpm_by_rpdₘ = floor(max(0, RPDₘ − used_todayₘ) / max(1, minutes_left_today))
+rpm_modelₘ  = min(rpm_by_rpmₘ, rpm_by_tpmₘ, rpm_by_rpdₘ)
+```
+> Note: The **token buckets** avoid zero‑throughput rounding by accumulating fractional capacity; the formula above is a useful upper‑bound estimate.
+
+### Scheduler logic (high‑level)
+1. **Select model** for each job:
+   - If `page.fail_count ≥ 2` ⇒ try **2.5 Pro** first; else follow priority **2.5 Flash → 2.5 Flash‑Lite → 2.0 Flash**.
+2. **Try acquire tokens** (Aₘ: 1; Bₘ: T_eff; Cₘ: 1) on the chosen model.  
+   - If any bucket lacks tokens, **try next model** in the allowed priority set for this page.  
+   - If none available, **wait** until the earliest bucket refill time.
+3. **Send request**, record token usage, update `used_todayₘ`.
+4. **Daily reset** of `used_todayₘ` and Cₘ at **00:00 UTC** (provider day boundary).
+
+### Concurrency & fairness
+- Worker concurrency remains **5** (cap). The scheduler meters when each worker may *start* a call.  
+- Pages with **2 prior failures** are **isolated** to use **2.5 Pro** only, so they don’t starve the main queue.
+- Optional **fair‑share**: round‑robin across classes/chapters to avoid one large upload monopolizing capacity.
+
+### Configuration (Settings table)
+- `t_eff_safety_factor` (default **1.2**)  
+- `min_tokens_per_req` (floor, default **1500**) — protects against under‑estimation for vision pages  
+- Per‑model enable/disable flags (for emergency)  
+- Timezone for dashboards is **Asia/Dhaka**, but quota **resets at 00:00 UTC**
+
+### Example (illustrative)
+Assume `T_eff = 3,000` tokens/request, **600 minutes** left today, and `used_today = 0`:
+- **2.5 Flash**: `rpm_by_tpm = floor(250,000/3,000)=83`, `rpm_by_rpm=10`, `rpm_by_rpd=floor(250/600)=0` ⇒ model must **pace via C**; bucket C fills at ~`0.416 req/min`, allowing ~**1 request every ~2.4 min**, bursting up to **10 RPM** when A allows.
+- **2.5 Flash‑Lite**: similar, but **RPD=1000** ⇒ `rpd_rate ≈ 1.66 req/min`, bounded by **15 RPM** and TPM.
+- **2.0 Flash**: very large TPM, but **RPD=200** ⇒ `rpd_rate ≈ 0.33 req/min`.
+
+The token buckets ensure we **utilize RPD over the whole day** while never exceeding **RPM** or **TPM**.
+
+### Acceptance criteria (rate limiting)
+- The system **never** exceeds any model’s **RPM**, **TPM**, or **RPD**.  
+- With sustained backlog, the **daily completed requests** per model approach its **RPD** (±5%) without violations.  
+- Pages with **≥2 failures** are attempted on **2.5 Pro** only and respect its caps.
 

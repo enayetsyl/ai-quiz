@@ -3,6 +3,7 @@ import { UserRoutes } from "../module/User/user.route";
 import { SettingsRoutes } from "../module/Settings/settings.route";
 import { TaxonomyRoutes } from "../module/Taxonomy/taxonomy.route";
 import { UploadRoutes } from "../module/Upload/upload.route";
+import { GenerationRoutes } from "../module/Generation/generation.route";
 
 const router = Router();
 
@@ -22,6 +23,10 @@ const moduleRoutes = [
   {
     path: "/uploads",
     route: UploadRoutes,
+  },
+  {
+    path: "/generation",
+    route: GenerationRoutes,
   },
   // TODO: add necessary path and route entries to this array
 ];

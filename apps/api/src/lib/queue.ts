@@ -6,5 +6,6 @@ const connection = new IORedis(
 );
 
 export const rasterizeQueue = new Queue("rasterize", { connection });
+export const generationQueue = new Queue("generation", { connection });
 
-export default { rasterizeQueue };
+export default { rasterizeQueue, generationQueue };

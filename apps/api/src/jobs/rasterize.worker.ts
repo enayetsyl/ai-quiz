@@ -11,6 +11,8 @@ import { downloadToBuffer, uploadBuffer } from "../lib/s3";
 import { prisma } from "../lib/prisma";
 import { logger } from "../lib/logger";
 
+const PROMPT_VERSION = process.env.PROMPT_VERSION || "v1";
+
 const execFilePromise = util.promisify(execFile);
 
 async function runPdfInfo(localPath: string): Promise<number> {
@@ -142,6 +144,7 @@ async function handleAnalyzeAndRasterize(job: Job) {
             attemptNo,
             model: "rasterize",
             isSuccess: true,
+            promptVersion: PROMPT_VERSION,
           } as any,
         });
 
@@ -163,6 +166,7 @@ async function handleAnalyzeAndRasterize(job: Job) {
             model: "rasterize",
             isSuccess: false,
             errorMessage: err?.message ?? String(err),
+            promptVersion: PROMPT_VERSION,
           } as any,
         });
         await prisma.page.update({
@@ -235,7 +239,13 @@ async function handleRasterizePage(job: Job) {
       });
       const attemptNo = (lastAttempt?.attemptNo ?? 0) + 1;
       await prisma.pageGenerationAttempt.create({
-        data: { pageId, attemptNo, model: "rasterize", isSuccess: true } as any,
+        data: {
+          pageId,
+          attemptNo,
+          model: "rasterize",
+          isSuccess: true,
+          promptVersion: PROMPT_VERSION,
+        } as any,
       });
 
       logger.info(
@@ -255,6 +265,7 @@ async function handleRasterizePage(job: Job) {
           model: "rasterize",
           isSuccess: false,
           errorMessage: err?.message ?? String(err),
+          promptVersion: PROMPT_VERSION,
         } as any,
       });
       await prisma.page.update({
