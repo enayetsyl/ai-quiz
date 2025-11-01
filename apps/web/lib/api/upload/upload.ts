@@ -51,8 +51,14 @@ export interface UploadListItem {
 export interface GenerationAttempt {
   id: string;
   pageId: string;
-  status: string;
+  attemptNo?: number;
+  model?: string;
+  promptVersion?: string;
+  isSuccess?: boolean;
+  status?: string;
   errorMessage: string | null;
+  requestExcerpt?: string | null;
+  responseExcerpt?: string | null;
   createdAt: string;
 }
 

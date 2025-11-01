@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import Image from "next/image";
 import { useParams } from "next/navigation";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
@@ -8,6 +9,8 @@ import {
   useRequeueUpload,
   useRegeneratePage,
 } from "@/lib/hooks/useUpload";
+import { PageAttemptsDialog } from "@/components/upload/PageAttemptsDialog";
+import { UploadAttemptsDialog } from "@/components/upload/UploadAttemptsDialog";
 import {
   Card,
   CardContent,
@@ -24,6 +27,7 @@ import {
   CheckCircle2Icon,
   XCircleIcon,
   ClockIcon,
+  FileText,
 } from "lucide-react";
 
 const statusIcons = {
@@ -40,6 +44,9 @@ export default function UploadStatusPage() {
   const { data: uploadStatus, isLoading, error } = useUploadStatus(uploadId);
   const requeueMutation = useRequeueUpload();
   const regenerateMutation = useRegeneratePage();
+  const [selectedPageId, setSelectedPageId] = useState<string | null>(null);
+  const [selectedPageNumber, setSelectedPageNumber] = useState<number>(0);
+  const [showUploadAttempts, setShowUploadAttempts] = useState(false);
 
   const handleRequeue = async () => {
     try {
@@ -102,23 +109,32 @@ export default function UploadStatusPage() {
                 Upload ID: <code className="text-xs">{uploadId}</code>
               </p>
             </div>
-            <Button
-              variant="outline"
-              onClick={handleRequeue}
-              disabled={requeueMutation.isPending}
-            >
-              {requeueMutation.isPending ? (
-                <>
-                  <Loader2Icon className="mr-2 h-4 w-4 animate-spin" />
-                  Requeuing...
-                </>
-              ) : (
-                <>
-                  <RefreshCw className="mr-2 h-4 w-4" />
-                  Requeue Upload
-                </>
-              )}
-            </Button>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                onClick={() => setShowUploadAttempts(true)}
+              >
+                <FileText className="mr-2 h-4 w-4" />
+                View Attempts
+              </Button>
+              <Button
+                variant="outline"
+                onClick={handleRequeue}
+                disabled={requeueMutation.isPending}
+              >
+                {requeueMutation.isPending ? (
+                  <>
+                    <Loader2Icon className="mr-2 h-4 w-4 animate-spin" />
+                    Requeuing...
+                  </>
+                ) : (
+                  <>
+                    <RefreshCw className="mr-2 h-4 w-4" />
+                    Requeue Upload
+                  </>
+                )}
+              </Button>
+            </div>
           </div>
 
           <Card>
@@ -198,33 +214,60 @@ export default function UploadStatusPage() {
                           />
                         </div>
                       )}
-                      {page.status === "failed" && (
+                      <div className="flex gap-2 mt-2">
                         <Button
-                          variant="outline"
+                          variant="ghost"
                           size="sm"
-                          onClick={() => handleRegeneratePage(page.id)}
-                          disabled={regenerateMutation.isPending}
-                          className="w-full mt-2"
+                          onClick={() => {
+                            setSelectedPageId(page.id);
+                            setSelectedPageNumber(page.pageNumber);
+                          }}
+                          className="flex-1"
                         >
-                          {regenerateMutation.isPending ? (
-                            <>
-                              <Loader2Icon className="mr-2 h-4 w-4 animate-spin" />
-                              Regenerating...
-                            </>
-                          ) : (
-                            <>
-                              <RefreshCw className="mr-2 h-4 w-4" />
-                              Regenerate
-                            </>
-                          )}
+                          <FileText className="mr-2 h-4 w-4" />
+                          View Attempts
                         </Button>
-                      )}
+                        {page.status === "failed" && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleRegeneratePage(page.id)}
+                            disabled={regenerateMutation.isPending}
+                            className="flex-1"
+                          >
+                            {regenerateMutation.isPending ? (
+                              <>
+                                <Loader2Icon className="mr-2 h-4 w-4 animate-spin" />
+                                Regenerating...
+                              </>
+                            ) : (
+                              <>
+                                <RefreshCw className="mr-2 h-4 w-4" />
+                                Regenerate
+                              </>
+                            )}
+                          </Button>
+                        )}
+                      </div>
                     </div>
                   );
                 })}
               </div>
             </CardContent>
           </Card>
+
+          <PageAttemptsDialog
+            pageId={selectedPageId}
+            pageNumber={selectedPageNumber}
+            open={!!selectedPageId}
+            onOpenChange={(open) => !open && setSelectedPageId(null)}
+          />
+
+          <UploadAttemptsDialog
+            uploadId={uploadId}
+            open={showUploadAttempts}
+            onOpenChange={setShowUploadAttempts}
+          />
         </div>
       </div>
     </ProtectedRoute>
