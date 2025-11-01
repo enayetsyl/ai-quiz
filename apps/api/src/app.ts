@@ -1,6 +1,7 @@
 import express from "express";
 import cookieParser from "cookie-parser";
 import helmet from "helmet";
+import cors from "cors";
 import { logger, requestLogger } from "./lib/logger";
 import { sendResponse, HttpError } from "./lib/http";
 import errorHandler from "./middleware/errorHandler";
@@ -8,36 +9,37 @@ import routes from "./routes";
 
 const app = express();
 
-app.use(helmet());
+app.use(
+  helmet({
+    crossOriginResourcePolicy: { policy: "cross-origin" },
+    crossOriginEmbedderPolicy: false,
+  })
+);
+
+// CORS configuration - must come before other middleware that sets headers
+const whitelist = ["http://localhost:3000"];
+app.use(
+  cors({
+    origin: (
+      origin: string | undefined,
+      callback: (err: Error | null, allow?: boolean) => void
+    ) => {
+      // Allow requests with no origin (mobile apps, curl, etc.)
+      if (!origin || whitelist.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error("Not allowed by CORS"));
+      }
+    },
+    credentials: true, // Required for httpOnly cookies
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization", "Accept", "Origin"],
+  })
+);
+
 app.use(express.json({ limit: "10mb" }));
 // parse cookies for auth flows
 app.use(cookieParser());
-
-// CORS whitelist (simple custom middleware to avoid adding external dependency)
-const whitelist = ["http://localhost:3000"];
-app.use((req, res, next) => {
-  const origin = req.headers.origin as string | undefined;
-  // allow requests with no origin (curl, mobile apps)
-  if (!origin || whitelist.includes(origin)) {
-    res.setHeader("Access-Control-Allow-Origin", origin ?? "*");
-    res.setHeader(
-      "Access-Control-Allow-Methods",
-      "GET,POST,PUT,DELETE,OPTIONS"
-    );
-    res.setHeader(
-      "Access-Control-Allow-Headers",
-      "Content-Type,Authorization,Accept,Origin"
-    );
-    if (req.method === "OPTIONS") return res.sendStatus(204);
-    return next();
-  }
-  return sendResponse(res, {
-    success: false,
-    message: "Not allowed by CORS",
-    error: { message: "Origin not allowed" },
-    status: 403,
-  });
-});
 
 // Minimal logging middleware: log only endpoint, responseTime, and message
 app.use(requestLogger);
