@@ -1,9 +1,10 @@
 "use client";
 
+import Link from "next/link";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
-import { LogoutButton } from "@/components/auth/LogoutButton";
 import { useAppSelector } from "@/lib/hooks/redux";
 import { useAuth } from "@/lib/hooks/useAuth";
+import { Button } from "@/components/ui/button";
 
 export default function Home() {
   useAuth(); // Initialize auth check
@@ -11,20 +12,28 @@ export default function Home() {
 
   return (
     <ProtectedRoute requireAuth={true}>
-      <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-        <main className="flex min-h-screen w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-          <div className="flex w-full items-center justify-between">
-            <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-              Welcome{user?.email ? `, ${user.email}` : ""}!
-            </h1>
-            <LogoutButton />
+      <div className="container mx-auto py-8 px-4">
+        <div className="max-w-4xl">
+          <h1 className="text-3xl font-bold mb-4">
+            Welcome{user?.email ? `, ${user.email}` : ""}!
+          </h1>
+          <p className="text-lg text-muted-foreground mb-6">
+            You are successfully authenticated. This is a protected route.
+          </p>
+          <div className="grid gap-4 md:grid-cols-2">
+            <div className="rounded-lg border p-6">
+              <h2 className="text-xl font-semibold mb-2">
+                Taxonomy Management
+              </h2>
+              <p className="text-sm text-muted-foreground mb-4">
+                Manage class levels, subjects, and chapters
+              </p>
+              <Link href="/taxonomy">
+                <Button>Go to Taxonomy</Button>
+              </Link>
+            </div>
           </div>
-          <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-            <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-              You are successfully authenticated. This is a protected route.
-            </p>
-          </div>
-        </main>
+        </div>
       </div>
     </ProtectedRoute>
   );
