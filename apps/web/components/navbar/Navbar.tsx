@@ -11,25 +11,19 @@ import {
   Home,
   LogIn,
   Upload as UploadIcon,
-  Sparkles,
   FileQuestion,
   Database,
+  Settings,
 } from "lucide-react";
 
 export function Navbar() {
   const pathname = usePathname();
-  const { isAuthenticated } = useAppSelector((state) => state.auth);
+  const { isAuthenticated, user } = useAppSelector((state) => state.auth);
 
   const navItems = [
     { href: "/", label: "Home", icon: Home, requireAuth: true },
     { href: "/taxonomy", label: "Taxonomy", icon: BookOpen, requireAuth: true },
     { href: "/uploads", label: "Uploads", icon: UploadIcon, requireAuth: true },
-    {
-      href: "/generation",
-      label: "Generation",
-      icon: Sparkles,
-      requireAuth: true,
-    },
     {
       href: "/questions",
       label: "Questions",
@@ -42,11 +36,20 @@ export function Navbar() {
       icon: Database,
       requireAuth: true,
     },
+    {
+      href: "/admin",
+      label: "Admin",
+      icon: Settings,
+      requireAuth: true,
+      requireAdmin: true,
+    },
   ];
 
-  const filteredNavItems = navItems.filter(
-    (item) => !item.requireAuth || isAuthenticated
-  );
+  const filteredNavItems = navItems.filter((item) => {
+    if (!isAuthenticated) return false;
+    if (item.requireAdmin && user?.role !== "admin") return false;
+    return !item.requireAuth || isAuthenticated;
+  });
 
   return (
     <nav className="border-b bg-background">

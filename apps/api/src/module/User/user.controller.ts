@@ -2,6 +2,7 @@ import { Request, Response } from "express";
 import * as service from "./user.service";
 import jwtLib from "../../lib/jwt";
 import { sendResponse, HttpError } from "../../lib/http";
+import { AuthRequest } from "../../middleware/auth";
 
 export async function register(req: Request, res: Response) {
   const { email, password } = req.body;
@@ -77,6 +78,28 @@ export async function resetPassword(req: Request, res: Response) {
   }
 }
 
+export async function getMe(req: AuthRequest, res: Response) {
+  // User info is already in req.user from requireAuth middleware
+  // The JWT payload contains { userId, role }
+  if (!req.user || !req.user.userId) {
+    throw new HttpError("Unauthorized: User not authenticated", 401);
+  }
+
+  const user = await service.findUserById(req.user.userId);
+  if (!user) {
+    throw new HttpError("User not found", 404);
+  }
+
+  return sendResponse(res, {
+    success: true,
+    data: {
+      id: user.id,
+      email: user.email,
+      role: user.role,
+    },
+  });
+}
+
 export default {
   register,
   login,
@@ -84,4 +107,5 @@ export default {
   refresh,
   forgotPassword,
   resetPassword,
+  getMe,
 };

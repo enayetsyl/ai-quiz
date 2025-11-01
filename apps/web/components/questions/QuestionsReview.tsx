@@ -24,15 +24,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import {
-  Pagination,
-  PaginationContent,
-  PaginationItem,
-  PaginationLink,
-  PaginationNext,
-  PaginationPrevious,
-  PaginationEllipsis,
-} from "@/components/ui/pagination";
+import { PaginationControls } from "@/components/shared/PaginationControls";
 import { CheckCircle2, XCircle, AlertCircle, Clock, Eye } from "lucide-react";
 import { QuestionEditor } from "./QuestionEditor";
 import { QuestionDetailModal } from "./QuestionDetailModal";
@@ -316,29 +308,7 @@ export function QuestionsReview() {
 
       <Card>
         <CardHeader>
-          <div className="flex items-center justify-between">
-            <CardTitle>Questions ({pagination?.total || 0})</CardTitle>
-            <div className="flex items-center gap-2">
-              <label className="text-sm font-medium">Page Size:</label>
-              <Select
-                value={pageSize.toString()}
-                onValueChange={(value) => {
-                  setPageSize(parseInt(value, 10));
-                  setPage(1);
-                }}
-              >
-                <SelectTrigger className="w-20">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="10">10</SelectItem>
-                  <SelectItem value="20">20</SelectItem>
-                  <SelectItem value="50">50</SelectItem>
-                  <SelectItem value="100">100</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
+          <CardTitle>Questions ({pagination?.total || 0})</CardTitle>
         </CardHeader>
         <CardContent>
           {questions && questions.length > 0 ? (
@@ -401,7 +371,9 @@ export function QuestionsReview() {
                             {question.id.slice(0, 8)}...
                           </TableCell> */}
                           <TableCell className="max-w-lg">
-                            <div className="truncate text-xs">{question.stem}</div>
+                            <div className="truncate text-xs">
+                              {question.stem}
+                            </div>
                             {isLocked && (
                               <Badge
                                 variant="secondary"
@@ -427,14 +399,18 @@ export function QuestionsReview() {
                           <TableCell>
                             <div className="flex items-center gap-2">
                               <StatusIcon className="h-4 w-4" />
-                              <Badge className="capitalize" variant={statusColors[question.status]}>
+                              <Badge
+                                className="capitalize"
+                                variant={statusColors[question.status]}
+                              >
                                 {question.status.replace("_", " ")}
                               </Badge>
                             </div>
                           </TableCell>
                           <TableCell className="max-w-[20px] text-xs">
-                            {question.class?.displayName}  <br />{" "}
-                            {question.subject?.name}  <br /> {question.chapter?.name}
+                            {question.class?.displayName} <br />{" "}
+                            {question.subject?.name} <br />{" "}
+                            {question.chapter?.name}
                             <br />
                             Page: {question.page?.pageNumber}
                           </TableCell>
@@ -469,72 +445,18 @@ export function QuestionsReview() {
                   </TableBody>
                 </Table>
               </div>
-              {pagination && pagination.totalPages > 1 && (
+              {pagination && (
                 <div className="mt-6">
-                  <Pagination>
-                    <PaginationContent>
-                      <PaginationItem>
-                        <PaginationPrevious
-                          href="#"
-                          onClick={(e) => {
-                            e.preventDefault();
-                            if (page > 1) setPage(page - 1);
-                          }}
-                          className={
-                            page === 1 ? "pointer-events-none opacity-50" : ""
-                          }
-                        />
-                      </PaginationItem>
-                      {Array.from({ length: pagination.totalPages }, (_, i) => {
-                        const pageNum = i + 1;
-                        // Show first page, last page, current page, and pages around current
-                        if (
-                          pageNum === 1 ||
-                          pageNum === pagination.totalPages ||
-                          (pageNum >= page - 1 && pageNum <= page + 1)
-                        ) {
-                          return (
-                            <PaginationItem key={pageNum}>
-                              <PaginationLink
-                                href="#"
-                                onClick={(e) => {
-                                  e.preventDefault();
-                                  setPage(pageNum);
-                                }}
-                                isActive={pageNum === page}
-                              >
-                                {pageNum}
-                              </PaginationLink>
-                            </PaginationItem>
-                          );
-                        } else if (
-                          pageNum === page - 2 ||
-                          pageNum === page + 2
-                        ) {
-                          return (
-                            <PaginationItem key={pageNum}>
-                              <PaginationEllipsis />
-                            </PaginationItem>
-                          );
-                        }
-                        return null;
-                      })}
-                      <PaginationItem>
-                        <PaginationNext
-                          href="#"
-                          onClick={(e) => {
-                            e.preventDefault();
-                            if (page < pagination.totalPages) setPage(page + 1);
-                          }}
-                          className={
-                            page === pagination.totalPages
-                              ? "pointer-events-none opacity-50"
-                              : ""
-                          }
-                        />
-                      </PaginationItem>
-                    </PaginationContent>
-                  </Pagination>
+                  <PaginationControls
+                    currentPage={page}
+                    totalPages={pagination.totalPages}
+                    pageSize={pageSize}
+                    onPageChange={setPage}
+                    onPageSizeChange={(newPageSize) => {
+                      setPageSize(newPageSize);
+                      setPage(1);
+                    }}
+                  />
                 </div>
               )}
             </>

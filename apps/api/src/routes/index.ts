@@ -6,6 +6,7 @@ import { UploadRoutes } from "../module/Upload/upload.route";
 import { GenerationRoutes } from "../module/Generation/generation.route";
 import QuestionRoutes from "../module/Question/question.route";
 import QuestionBankRoutes from "../module/QuestionBank/questionbank.route";
+import { AdminRoutes } from "../module/Admin/admin.route";
 
 const router = Router();
 
@@ -37,6 +38,10 @@ const moduleRoutes = [
   {
     path: "/question-bank",
     route: QuestionBankRoutes,
+  },
+  {
+    path: "/admin",
+    route: AdminRoutes,
   },
 ];
 

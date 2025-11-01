@@ -3,6 +3,7 @@ import validateZod from "../../middleware/validateZod";
 import validation from "./user.validation";
 import controller from "./user.controller";
 import catchAsync from "../../utils/catchAsync";
+import requireAuth from "../../middleware/auth";
 
 const router = Router();
 
@@ -28,6 +29,7 @@ router.post(
   validateZod({ body: validation.resetPasswordSchema }),
   catchAsync(controller.resetPassword)
 );
+router.get("/me", requireAuth, catchAsync(controller.getMe));
 
 export const UserRoutes = router;
 

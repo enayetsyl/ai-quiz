@@ -8,6 +8,7 @@ import { validateGeminiResponse } from "../lib/llmValidator";
 import { downloadToBuffer } from "../lib/s3";
 import { prisma } from "../lib/prisma";
 import { logger } from "../lib/logger";
+import { extractTokenUsage, calculateCost } from "../lib/llmCost";
 
 const PROMPT_VERSION = process.env.PROMPT_VERSION || "v1";
 
@@ -230,7 +231,7 @@ async function processPage(job: Job) {
           "GenAI validation failed preview"
         );
       } catch (_) {}
-      await prisma.pageGenerationAttempt.create({
+      const attempt = await prisma.pageGenerationAttempt.create({
         data: {
           pageId: page.id,
           attemptNo: (await getLastAttemptNo(page.id)) + 1,
@@ -242,6 +243,23 @@ async function processPage(job: Job) {
           promptVersion: PROMPT_VERSION,
         } as any,
       });
+
+      // Record usage event even on validation failure (API call was made)
+      const tokenUsage = extractTokenUsage(sdkRaw);
+      if (tokenUsage) {
+        const estimatedCost = calculateCost(model, tokenUsage.tokensIn, tokenUsage.tokensOut);
+        await prisma.llmUsageEvent.create({
+          data: {
+            pageId: page.id,
+            attemptId: attempt.id,
+            model,
+            tokensIn: tokenUsage.tokensIn,
+            tokensOut: tokenUsage.tokensOut,
+            estimatedCostUsd: estimatedCost,
+          } as any,
+        });
+      }
+
       throw zErr;
     }
 
@@ -278,7 +296,8 @@ async function processPage(job: Job) {
       });
     }
 
-    await prisma.pageGenerationAttempt.create({
+    // Create page generation attempt record
+    const attempt = await prisma.pageGenerationAttempt.create({
       data: {
         pageId: page.id,
         attemptNo: (await getLastAttemptNo(page.id)) + 1,
@@ -290,13 +309,41 @@ async function processPage(job: Job) {
       } as any,
     });
 
+    // Extract token usage and create LlmUsageEvent
+    const tokenUsage = extractTokenUsage(sdkRaw);
+    if (tokenUsage) {
+      const estimatedCost = calculateCost(model, tokenUsage.tokensIn, tokenUsage.tokensOut);
+      await prisma.llmUsageEvent.create({
+        data: {
+          pageId: page.id,
+          attemptId: attempt.id,
+          model,
+          tokensIn: tokenUsage.tokensIn,
+          tokensOut: tokenUsage.tokensOut,
+          estimatedCostUsd: estimatedCost,
+        } as any,
+      });
+      logger.info(
+        {
+          pageId,
+          model,
+          tokensIn: tokenUsage.tokensIn,
+          tokensOut: tokenUsage.tokensOut,
+          cost: estimatedCost,
+        },
+        "LLM usage event recorded"
+      );
+    } else {
+      logger.warn({ pageId, model }, "Could not extract token usage from response");
+    }
+
     await prisma.page.update({
       where: { id: page.id },
       data: { status: "complete" as any, lastGeneratedAt: new Date() },
     });
   } catch (err: any) {
     logger.error({ pageId, err }, "LLM generation failed");
-    await prisma.pageGenerationAttempt.create({
+    const attempt = await prisma.pageGenerationAttempt.create({
       data: {
         pageId: page.id,
         attemptNo: (await getLastAttemptNo(page.id)) + 1,
@@ -310,6 +357,36 @@ async function processPage(job: Job) {
         promptVersion: PROMPT_VERSION,
       } as any,
     });
+
+    // Try to extract token usage from error response if available
+    const errorResponse = (err as any)?.raw ?? (err as any)?.sdkRaw;
+    const tokenUsage = extractTokenUsage(errorResponse);
+    if (tokenUsage) {
+      const estimatedCost = calculateCost(model, tokenUsage.tokensIn, tokenUsage.tokensOut);
+      await prisma.llmUsageEvent.create({
+        data: {
+          pageId: page.id,
+          attemptId: attempt.id,
+          model,
+          tokensIn: tokenUsage.tokensIn,
+          tokensOut: tokenUsage.tokensOut,
+          estimatedCostUsd: estimatedCost,
+        } as any,
+      });
+    } else {
+      // Record event with null tokens if we can't extract them
+      // This ensures we track that an API call was attempted
+      await prisma.llmUsageEvent.create({
+        data: {
+          pageId: page.id,
+          attemptId: attempt.id,
+          model,
+          tokensIn: null,
+          tokensOut: null,
+          estimatedCostUsd: null,
+        } as any,
+      });
+    }
 
     // mark page as failed (attempts are recorded separately)
     await prisma.page.update({

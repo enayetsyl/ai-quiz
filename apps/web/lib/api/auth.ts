@@ -71,4 +71,12 @@ export const authApi = {
   resetPassword: async (data: ResetPasswordData): Promise<void> => {
     await apiClient.post("/users/reset-password", data);
   },
+
+  /**
+   * Get current user information
+   */
+  getMe: async (): Promise<User> => {
+    const response = await apiClient.get<ApiResponse<User>>("/users/me");
+    return extractApiData<User>(response);
+  },
 };

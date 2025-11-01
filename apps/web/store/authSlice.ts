@@ -29,9 +29,9 @@ export const checkAuth = createAsyncThunk(
     try {
       // Try to refresh token to check if user is authenticated
       await authApi.refresh();
-      // If successful, user is authenticated (we don't have a /me endpoint)
-      // User data will be available from login/register
-      return { isAuthenticated: true };
+      // Fetch current user info including role
+      const user = await authApi.getMe();
+      return { isAuthenticated: true, user };
     } catch {
       return rejectWithValue("Not authenticated");
     }
@@ -46,10 +46,11 @@ export const loginUser = createAsyncThunk(
   ) => {
     try {
       await authApi.login(credentials);
-      // User email from login credentials (we don't get full user data from login endpoint)
+      // Fetch current user info including role after successful login
+      const user = await authApi.getMe();
       return {
         isAuthenticated: true,
-        user: { email: credentials.email } as User,
+        user,
       };
     } catch (error) {
       const errorMessage =
@@ -108,9 +109,10 @@ const authSlice = createSlice({
       .addCase(checkAuth.pending, (state) => {
         state.isLoading = true;
       })
-      .addCase(checkAuth.fulfilled, (state) => {
+      .addCase(checkAuth.fulfilled, (state, action) => {
         state.isLoading = false;
         state.isAuthenticated = true;
+        state.user = action.payload.user;
         state.error = null;
       })
       .addCase(checkAuth.rejected, (state) => {

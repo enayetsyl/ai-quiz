@@ -31,6 +31,10 @@ export async function findUserByEmail(email: string) {
   return prisma.user.findUnique({ where: { email } });
 }
 
+export async function findUserById(id: string) {
+  return prisma.user.findUnique({ where: { id } });
+}
+
 export function createTokensForUser(user: any) {
   const payload = { userId: user.id, role: user.role };
   const access = jwtLib.signAccessToken(payload);

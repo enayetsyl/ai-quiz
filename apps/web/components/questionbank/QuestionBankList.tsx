@@ -25,6 +25,7 @@ import {
 } from "@/components/ui/table";
 import { Eye } from "lucide-react";
 import Image from "next/image";
+import { PaginationControls } from "@/components/shared/PaginationControls";
 
 export function QuestionBankList() {
   const [filters, setFilters] = useState<QuestionBankFilters>({});
@@ -36,16 +37,30 @@ export function QuestionBankList() {
     string | undefined
   >();
   const [viewingImage, setViewingImage] = useState<string | null>(null);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
 
   const { data: classes } = useClasses();
   const { data: subjects } = useSubjects(selectedClassId);
   const { data: chapters } = useChapters(selectedSubjectId);
-  const { data: items, isLoading } = useQuestionBank({
+  const { data: allItems, isLoading } = useQuestionBank({
     ...filters,
     classId: selectedClassId,
     subjectId: selectedSubjectId,
     chapterId: selectedChapterId,
   });
+
+  // Client-side pagination (until backend supports it)
+  const totalItems = allItems?.length || 0;
+  const totalPages = Math.ceil(totalItems / pageSize);
+  const startIndex = (page - 1) * pageSize;
+  const endIndex = startIndex + pageSize;
+  const items = allItems?.slice(startIndex, endIndex) || [];
+
+  // Reset to page 1 when filters change
+  const handleFilterChange = () => {
+    setPage(1);
+  };
 
   if (isLoading) {
     return (
@@ -75,6 +90,7 @@ export function QuestionBankList() {
                   );
                   setSelectedSubjectId(undefined);
                   setSelectedChapterId(undefined);
+                  handleFilterChange();
                 }}
               >
                 <SelectTrigger>
@@ -98,6 +114,7 @@ export function QuestionBankList() {
                 onValueChange={(value) => {
                   setSelectedSubjectId(value === "all" ? undefined : value);
                   setSelectedChapterId(undefined);
+                  handleFilterChange();
                 }}
                 disabled={!selectedClassId}
               >
@@ -121,6 +138,7 @@ export function QuestionBankList() {
                 value={selectedChapterId || "all"}
                 onValueChange={(value) => {
                   setSelectedChapterId(value === "all" ? undefined : value);
+                  handleFilterChange();
                 }}
                 disabled={!selectedSubjectId}
               >
@@ -143,83 +161,99 @@ export function QuestionBankList() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Question Bank Items ({items?.length || 0})</CardTitle>
+          <CardTitle>Question Bank Items ({totalItems})</CardTitle>
         </CardHeader>
         <CardContent>
           {items && items.length > 0 ? (
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Code</TableHead>
-                    <TableHead>Stem</TableHead>
-                    <TableHead>Options</TableHead>
-                    <TableHead>Correct</TableHead>
-                    <TableHead>Difficulty</TableHead>
-                    <TableHead>Taxonomy</TableHead>
-                    <TableHead>Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {items.map((item) => (
-                    <TableRow key={item.id}>
-                      <TableCell className="font-mono">
-                        {item.subjShortCode}
-                        {item.seqNo
-                          ? `-${item.seqNo.toString().padStart(4, "0")}`
-                          : ""}
-                      </TableCell>
-                      <TableCell className="max-w-md">
-                        <div className="truncate">{item.stem}</div>
-                      </TableCell>
-                      <TableCell className="max-w-xs text-xs">
-                        <div className="space-y-1">
-                          <div>A: {item.optionA.slice(0, 30)}...</div>
-                          <div>B: {item.optionB.slice(0, 30)}...</div>
-                          <div>C: {item.optionC.slice(0, 30)}...</div>
-                          <div>D: {item.optionD.slice(0, 30)}...</div>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant="outline">
-                          {item.correctOption.toUpperCase()}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <Badge
-                          variant={
-                            item.difficulty === "easy"
-                              ? "default"
-                              : item.difficulty === "medium"
-                              ? "secondary"
-                              : "destructive"
-                          }
-                        >
-                          {item.difficulty}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-xs">
-                        {item.class?.displayName} / {item.subject?.name} /{" "}
-                        {item.chapter?.name}
-                      </TableCell>
-                      <TableCell>
-                        {item.pageImageUrl && (
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() =>
-                              setViewingImage(item.pageImageUrl || null)
+            <>
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Code</TableHead>
+                      <TableHead>Stem</TableHead>
+                      <TableHead>Options</TableHead>
+                      <TableHead>Correct</TableHead>
+                      <TableHead>Difficulty</TableHead>
+                      <TableHead>Taxonomy</TableHead>
+                      <TableHead>Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {items.map((item) => (
+                      <TableRow key={item.id}>
+                        <TableCell className="font-mono">
+                          {item.subjShortCode}
+                          {item.seqNo
+                            ? `-${item.seqNo.toString().padStart(4, "0")}`
+                            : ""}
+                        </TableCell>
+                        <TableCell className="max-w-md">
+                          <div className="truncate">{item.stem}</div>
+                        </TableCell>
+                        <TableCell className="max-w-xs text-xs">
+                          <div className="space-y-1">
+                            <div>A: {item.optionA.slice(0, 30)}...</div>
+                            <div>B: {item.optionB.slice(0, 30)}...</div>
+                            <div>C: {item.optionC.slice(0, 30)}...</div>
+                            <div>D: {item.optionD.slice(0, 30)}...</div>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant="outline">
+                            {item.correctOption.toUpperCase()}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <Badge
+                            variant={
+                              item.difficulty === "easy"
+                                ? "default"
+                                : item.difficulty === "medium"
+                                ? "secondary"
+                                : "destructive"
                             }
                           >
-                            <Eye className="h-4 w-4" />
-                          </Button>
-                        )}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
+                            {item.difficulty}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-xs">
+                          {item.class?.displayName} / {item.subject?.name} /{" "}
+                          {item.chapter?.name}
+                        </TableCell>
+                        <TableCell>
+                          {item.pageImageUrl && (
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() =>
+                                setViewingImage(item.pageImageUrl || null)
+                              }
+                            >
+                              <Eye className="h-4 w-4" />
+                            </Button>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+              {totalPages > 1 && (
+                <div className="mt-6">
+                  <PaginationControls
+                    currentPage={page}
+                    totalPages={totalPages}
+                    pageSize={pageSize}
+                    onPageChange={setPage}
+                    onPageSizeChange={(newPageSize) => {
+                      setPageSize(newPageSize);
+                      setPage(1);
+                    }}
+                  />
+                </div>
+              )}
+            </>
           ) : (
             <div className="py-12 text-center">
               <p className="text-muted-foreground">
