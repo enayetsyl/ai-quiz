@@ -2,6 +2,7 @@ import { Router } from "express";
 import requireAuth from "../../middleware/auth";
 import catchAsync from "../../utils/catchAsync";
 import uploadController, {
+  listUploads,
   getUploadStatus,
   requeueUpload,
   regeneratePage,
@@ -18,6 +19,7 @@ router.post(
   uploadController.uploadPdf[0] as any,
   catchAsync(uploadController.uploadPdf[1] as any)
 );
+router.get("/", requireAuth, catchAsync(listUploads as any));
 router.get("/:id/status", requireAuth, catchAsync(getUploadStatus as any));
 router.post("/:id/requeue", requireAuth, catchAsync(requeueUpload as any));
 router.post(

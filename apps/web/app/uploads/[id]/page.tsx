@@ -1,0 +1,232 @@
+"use client";
+
+import Image from "next/image";
+import { useParams } from "next/navigation";
+import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
+import {
+  useUploadStatus,
+  useRequeueUpload,
+  useRegeneratePage,
+} from "@/lib/hooks/useUpload";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Badge } from "@/components/ui/badge";
+import {
+  RefreshCw,
+  Loader2Icon,
+  CheckCircle2Icon,
+  XCircleIcon,
+  ClockIcon,
+} from "lucide-react";
+
+const statusIcons = {
+  queued: ClockIcon,
+  generating: Loader2Icon,
+  complete: CheckCircle2Icon,
+  failed: XCircleIcon,
+  pending: ClockIcon,
+} as const;
+
+export default function UploadStatusPage() {
+  const params = useParams();
+  const uploadId = params.id as string;
+  const { data: uploadStatus, isLoading, error } = useUploadStatus(uploadId);
+  const requeueMutation = useRequeueUpload();
+  const regenerateMutation = useRegeneratePage();
+
+  const handleRequeue = async () => {
+    try {
+      await requeueMutation.mutateAsync(uploadId);
+    } catch {
+      // Error handled by mutation
+    }
+  };
+
+  const handleRegeneratePage = async (pageId: string) => {
+    try {
+      await regenerateMutation.mutateAsync(pageId);
+    } catch {
+      // Error handled by mutation
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <ProtectedRoute requireAuth={true}>
+        <div className="container mx-auto py-8 px-4">
+          <Skeleton className="h-64 w-full" />
+        </div>
+      </ProtectedRoute>
+    );
+  }
+
+  if (error || !uploadStatus) {
+    return (
+      <ProtectedRoute requireAuth={true}>
+        <div className="container mx-auto py-8 px-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Upload Not Found</CardTitle>
+              <CardDescription>
+                The upload you&apos;re looking for doesn&apos;t exist or failed
+                to load.
+              </CardDescription>
+            </CardHeader>
+          </Card>
+        </div>
+      </ProtectedRoute>
+    );
+  }
+
+  const completedPages = uploadStatus.pages.filter(
+    (page) => page.status === "complete"
+  ).length;
+  const totalPages = uploadStatus.pagesCount || uploadStatus.pages.length;
+  const progress = totalPages > 0 ? (completedPages / totalPages) * 100 : 0;
+
+  return (
+    <ProtectedRoute requireAuth={true}>
+      <div className="container mx-auto py-8 px-4">
+        <div className="max-w-4xl mx-auto space-y-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-3xl font-bold mb-2">Upload Status</h1>
+              <p className="text-muted-foreground">
+                Upload ID: <code className="text-xs">{uploadId}</code>
+              </p>
+            </div>
+            <Button
+              variant="outline"
+              onClick={handleRequeue}
+              disabled={requeueMutation.isPending}
+            >
+              {requeueMutation.isPending ? (
+                <>
+                  <Loader2Icon className="mr-2 h-4 w-4 animate-spin" />
+                  Requeuing...
+                </>
+              ) : (
+                <>
+                  <RefreshCw className="mr-2 h-4 w-4" />
+                  Requeue Upload
+                </>
+              )}
+            </Button>
+          </div>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Progress</CardTitle>
+              <CardDescription>
+                {completedPages} of {totalPages} pages completed
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="w-full bg-gray-200 rounded-full h-4 mb-4">
+                <div
+                  className="bg-primary h-4 rounded-full transition-all duration-300"
+                  style={{ width: `${progress}%` }}
+                />
+              </div>
+              <div className="text-sm text-muted-foreground">
+                {progress.toFixed(1)}% complete
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Pages</CardTitle>
+              <CardDescription>
+                {uploadStatus.pages.length} page
+                {uploadStatus.pages.length !== 1 ? "s" : ""} found
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                {uploadStatus.pages.map((page) => {
+                  const StatusIcon =
+                    statusIcons[page.status as keyof typeof statusIcons] ||
+                    ClockIcon;
+                  const isProcessing =
+                    page.status === "queued" || page.status === "generating";
+
+                  return (
+                    <div
+                      key={page.id}
+                      className="border rounded-lg p-4 space-y-2"
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <StatusIcon
+                            className={`h-4 w-4 ${
+                              isProcessing ? "animate-spin" : ""
+                            }`}
+                          />
+                          <span className="font-medium">
+                            Page {page.pageNumber}
+                          </span>
+                        </div>
+                        <Badge
+                          variant={
+                            page.status === "complete"
+                              ? "default"
+                              : page.status === "failed"
+                              ? "destructive"
+                              : "secondary"
+                          }
+                        >
+                          {page.status}
+                        </Badge>
+                      </div>
+                      {page.pngUrl && (
+                        <div className="mt-2 relative w-full">
+                          <Image
+                            src={page.pngUrl}
+                            alt={`Page ${page.pageNumber}`}
+                            width={800}
+                            height={1000}
+                            className="w-full h-auto rounded border"
+                            unoptimized
+                          />
+                        </div>
+                      )}
+                      {page.status === "failed" && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleRegeneratePage(page.id)}
+                          disabled={regenerateMutation.isPending}
+                          className="w-full mt-2"
+                        >
+                          {regenerateMutation.isPending ? (
+                            <>
+                              <Loader2Icon className="mr-2 h-4 w-4 animate-spin" />
+                              Regenerating...
+                            </>
+                          ) : (
+                            <>
+                              <RefreshCw className="mr-2 h-4 w-4" />
+                              Regenerate
+                            </>
+                          )}
+                        </Button>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    </ProtectedRoute>
+  );
+}

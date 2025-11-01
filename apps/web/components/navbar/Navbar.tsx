@@ -6,7 +6,7 @@ import { useAppSelector } from "@/lib/hooks/redux";
 import { Button } from "@/components/ui/button";
 import { LogoutButton } from "@/components/auth/LogoutButton";
 import { cn } from "@/lib/utils";
-import { BookOpen, Settings, Home, LogIn } from "lucide-react";
+import { BookOpen, Home, LogIn, Upload as UploadIcon } from "lucide-react";
 
 export function Navbar() {
   const pathname = usePathname();
@@ -15,6 +15,7 @@ export function Navbar() {
   const navItems = [
     { href: "/", label: "Home", icon: Home, requireAuth: true },
     { href: "/taxonomy", label: "Taxonomy", icon: BookOpen, requireAuth: true },
+    { href: "/uploads", label: "Upload", icon: UploadIcon, requireAuth: true },
     // Add more routes here as they're created
   ];
 

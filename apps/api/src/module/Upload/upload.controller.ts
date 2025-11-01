@@ -49,6 +49,88 @@ export const uploadPdf = [
 
 export default { uploadPdf };
 
+export const listUploads = async (req: Request, res: Response) => {
+  const prismaLib = await import("../../lib/prisma");
+  const uploads = await prismaLib.prisma.upload.findMany({
+    orderBy: { createdAt: "desc" },
+    include: {
+      class: {
+        select: {
+          id: true,
+          displayName: true,
+        },
+      },
+      subject: {
+        select: {
+          id: true,
+          name: true,
+        },
+      },
+      chapter: {
+        select: {
+          id: true,
+          name: true,
+        },
+      },
+      _count: {
+        select: {
+          pages: true,
+        },
+      },
+    },
+  });
+
+  // Calculate status for each upload based on pages
+  const uploadsWithStatus = await Promise.all(
+    uploads.map(async (upload) => {
+      const pages = await prismaLib.prisma.page.findMany({
+        where: { uploadId: upload.id },
+        select: { status: true },
+      });
+
+      const completedCount = pages.filter(
+        (p) => p.status === "complete"
+      ).length;
+      const failedCount = pages.filter((p) => p.status === "failed").length;
+      const processingCount = pages.filter(
+        (p) => p.status === "queued" || p.status === "generating"
+      ).length;
+
+      let overallStatus = "pending";
+      if (pages.length === 0) {
+        overallStatus = "pending";
+      } else if (processingCount > 0) {
+        overallStatus = "processing";
+      } else if (failedCount === pages.length) {
+        overallStatus = "failed";
+      } else if (completedCount === pages.length) {
+        overallStatus = "completed";
+      } else if (completedCount > 0 || failedCount > 0) {
+        overallStatus = "partial";
+      }
+
+      return {
+        id: upload.id,
+        originalFilename: upload.originalFilename,
+        createdAt: upload.createdAt,
+        pagesCount: upload.pagesCount || pages.length,
+        completedPages: completedCount,
+        failedPages: failedCount,
+        processingPages: processingCount,
+        status: overallStatus,
+        classLevel: upload.class?.displayName || null,
+        subject: upload.subject?.name || null,
+        chapter: upload.chapter?.name || null,
+      };
+    })
+  );
+
+  return sendResponse(res, {
+    success: true,
+    data: uploadsWithStatus,
+  });
+};
+
 export const getUploadStatus = async (req: Request, res: Response) => {
   const uploadId = req.params.id;
   const upload = await (
