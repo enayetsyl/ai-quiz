@@ -4,6 +4,8 @@ import { SettingsRoutes } from "../module/Settings/settings.route";
 import { TaxonomyRoutes } from "../module/Taxonomy/taxonomy.route";
 import { UploadRoutes } from "../module/Upload/upload.route";
 import { GenerationRoutes } from "../module/Generation/generation.route";
+import QuestionRoutes from "../module/Question/question.route";
+import QuestionBankRoutes from "../module/QuestionBank/questionbank.route";
 
 const router = Router();
 
@@ -28,7 +30,14 @@ const moduleRoutes = [
     path: "/generation",
     route: GenerationRoutes,
   },
-  // TODO: add necessary path and route entries to this array
+  {
+    path: "/questions",
+    route: QuestionRoutes,
+  },
+  {
+    path: "/question-bank",
+    route: QuestionBankRoutes,
+  },
 ];
 
 moduleRoutes.forEach((route) => router.use(route.path, route.route));

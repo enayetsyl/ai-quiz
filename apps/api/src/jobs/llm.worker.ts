@@ -11,34 +11,76 @@ import { logger } from "../lib/logger";
 
 const PROMPT_VERSION = process.env.PROMPT_VERSION || "v1";
 
-async function processPage(job: Job) {
-  const { pageId } = job.data as { pageId: string };
-
-  const page = await prisma.page.findUnique({ where: { id: pageId } });
-  if (!page) throw new Error("Page not found");
-
-  // Download image from S3 to memory (buffer) - will be garbage collected after use
-  const imageBuffer = await downloadToBuffer(page.s3PngKey);
-
-  // estimate tokens conservatively by image size heuristic — placeholder
-  const estimatedTokens = 2000;
-
-  // compute fail count from past generation attempts
-  const failCount = await prisma.pageGenerationAttempt.count({
-    where: { pageId, isSuccess: false },
-  });
-  const preferred =
-    failCount >= 2
-      ? ["g2.5-pro", "g2.5-flash", "g2.5-flash-lite", "g2.0-flash"]
-      : ["g2.5-flash", "g2.5-flash-lite", "g2.0-flash"];
-
-  const reservation = await llmScheduler.acquire(preferred, estimatedTokens);
-  const model = reservation.modelId;
-
-  try {
-    const prompt = `You will receive ONE textbook page image (already provided). Read only visible text.
-Ignore headers/footers/captions/page numbers/watermarks. Skip any line < 20 characters.
+function getMathPrompt(): string {
+  return `You will receive ONE textbook page image (already provided). Read only visible text.
+Ignore headers/footers/captions/page numbers/watermarks.
 Language must match the page (Bangla page → Bangla questions; English page → English questions).
+
+CRITICAL: Mathematical Content Processing Rules:
+- This page contains MATHEMATICAL CONTENT. Mathematical problems often span multiple lines.
+- Identify COMPLETE math problems, exercises, or concepts. A problem may span 1-10 lines or more.
+- DO NOT generate questions line-by-line. Treat each complete problem as one unit.
+- Generate approximately 2-5 MCQs per page based on complete problems/concepts found.
+- Preserve ALL mathematical notation, formulas, equations, and symbols EXACTLY as shown.
+- For Bengali math pages: preserve Bengali mathematical terminology exactly (e.g., যোগ, বিয়োগ, গুণ, ভাগ, সমীকরণ, etc.).
+- Mathematical expressions must be preserved character-for-character, including all operators, numbers, and variables.
+
+CRITICAL: Bengali/Bangla Character Recognition & Preservation Rules (for Bengali math):
+- When reading Bengali text, carefully examine EACH CHARACTER individually. Many Bengali characters look similar but are different (e.g., ন vs ম, র vs ড় vs ঢ়, ত vs ৎ vs থ).
+- PAY EXTREME ATTENTION to character-level details. Characters like ন (no), ম (mo), র (ro), ড় (ro), ঢ় (rho), ত (to), ৎ (tto), থ (tho) must be distinguished correctly.
+- Before writing any Bengali word, verify character-by-character against the image. Do NOT substitute similar-looking characters.
+- COPY EXACTLY as it appears in the image - character by character, stroke by stroke. Do NOT transliterate, romanize, or modify Bengali words.
+- Preserve ALL Bengali characters, diacritics, conjunct characters (যুক্তাক্ষর), and spelling exactly as shown in the source text.
+- If you are uncertain about a Bengali character after careful examination, preserve it exactly as you see it in the image - do not guess, modify, or substitute.
+
+Task:
+- Scan the entire page and identify distinct math problems/exercises/concepts.
+- For each identified problem/concept, generate 1-2 relevant MCQs.
+- Questions should test problem-solving, conceptual understanding, or application.
+- Each MCQ must have exactly 4 options.
+- Exactly one correct option per question.
+- Include a short explanation showing the solution/work (if applicable).
+- Distribute difficulty per page: ~40% easy, 35% medium, 25% hard (math tends to be more challenging).
+
+Output format (STRICT):
+- Return a single raw JSON object (UTF-8). NO markdown, NO code fences, NO comments, NO extra keys.
+- The JSON MUST match this schema exactly:
+{
+  "questions": [
+    {
+      "stem": "string",
+      "options": { "a": "string", "b": "string", "c": "string", "d": "string" },
+      "correct_option": "a|b|c|d",
+      "explanation": "string",
+      "difficulty": "easy|medium|hard"
+    }
+  ]
+}
+
+Field rules:
+- stem: complete problem statement or concept question; same language as page. For Bengali: preserve exact spelling and mathematical terms.
+- options.a–d: mutually exclusive, plausible; same language as page. For Bengali: preserve exact spelling from source.
+- correct_option: one of "a","b","c","d" (lowercase).
+- explanation: short, why the correct is correct (can include solution steps for math). Same language as page with exact Bengali spelling.
+- difficulty: one of "easy","medium","hard"; keep page-level ratio ~40/35/25.
+- Do NOT include markdown fences or any text outside the JSON.`;
+}
+
+function getNonMathPrompt(): string {
+  return `You will receive ONE textbook page image (already provided). Read only visible text.
+Ignore headers/footers/captions/page numbers/watermarks.
+Language must match the page (Bangla page → Bangla questions; English page → English questions).
+
+CRITICAL: Bengali/Bangla Character Recognition & Preservation Rules:
+- When reading Bengali text, carefully examine EACH CHARACTER individually. Many Bengali characters look similar but are different (e.g., ন vs ম, র vs ড় vs ঢ়, ত vs ৎ vs থ).
+- PAY EXTREME ATTENTION to character-level details. Characters like ন (no), ম (mo), র (ro), ড় (ro), ঢ় (rho), ত (to), ৎ (tto), থ (tho) must be distinguished correctly.
+- Before writing any Bengali word, verify character-by-character against the image. Do NOT substitute similar-looking characters.
+- COPY EXACTLY as it appears in the image - character by character, stroke by stroke. Do NOT transliterate, romanize, or modify Bengali words.
+- Preserve ALL Bengali characters, diacritics, conjunct characters (যুক্তাক্ষর), and spelling exactly as shown in the source text.
+- Do NOT correct, "improve", or guess Bengali spelling - use the exact characters from the textbook page.
+- If the image quality makes a character unclear, examine it carefully and compare with surrounding characters for context. Do NOT assume or substitute.
+- For Bengali questions, maintain the exact same vocabulary, characters, and terminology used in the source material.
+- If you are uncertain about a Bengali character after careful examination, preserve it exactly as you see it in the image - do not guess, modify, or substitute with similar-looking characters.
 
 Task:
 - Generate approximately one MCQ per eligible line.
@@ -63,12 +105,78 @@ Output format (STRICT):
 }
 
 Field rules:
-- stem: concise, unambiguous, free of line numbers; same language as page.
-- options.a–d: mutually exclusive, plausible; same language as page.
+- stem: concise, unambiguous, free of line numbers; same language as page. For Bengali: preserve exact spelling from source.
+- options.a–d: mutually exclusive, plausible; same language as page. For Bengali: preserve exact spelling from source.
 - correct_option: one of "a","b","c","d" (lowercase).
-- explanation: short, why the correct is correct (not a restatement).
+- explanation: short, why the correct is correct (not a restatement). Same language as page with exact Bengali spelling.
 - difficulty: one of "easy","medium","hard"; keep page-level ratio ~50/30/20.
 - Do NOT include markdown fences or any text outside the JSON.`;
+}
+
+async function processPage(job: Job) {
+  const { pageId } = job.data as { pageId: string };
+
+  const page = await prisma.page.findUnique({
+    where: { id: pageId },
+    include: {
+      upload: {
+        include: {
+          subject: true,
+        },
+      },
+    },
+  });
+  if (!page) throw new Error("Page not found");
+
+  // Detect if this is a math subject
+  const subject = page.upload?.subject;
+  const subjectName = subject?.name?.toLowerCase() || "";
+  const subjectCode = subject?.code?.toLowerCase() || "";
+  const isMathSubject =
+    subjectName.includes("math") ||
+    subjectName.includes("গণিত") ||
+    subjectCode === "ma" ||
+    subjectCode === "mt";
+
+  logger.info(
+    {
+      pageId,
+      subjectName: subject?.name,
+      subjectCode: subject?.code,
+      isMathSubject,
+    },
+    `Processing page - using ${isMathSubject ? "MATH" : "NON-MATH"} prompt`
+  );
+
+  // Update status to "generating" when LLM processing starts
+  await prisma.page.update({
+    where: { id: pageId },
+    data: { status: "generating" as any },
+  });
+
+  // Download image from S3 to memory (buffer) - will be garbage collected after use
+  const imageBuffer = await downloadToBuffer(page.s3PngKey);
+
+  // estimate tokens conservatively by image size heuristic — placeholder
+  const estimatedTokens = 2000;
+
+  // compute fail count from past generation attempts
+  const failCount = await prisma.pageGenerationAttempt.count({
+    where: { pageId, isSuccess: false },
+  });
+  // Prefer g2.5-pro for better Bengali character recognition (especially first attempt)
+  // It has better OCR accuracy for similar-looking Bengali characters
+  const preferred =
+    failCount >= 2
+      ? ["g2.5-pro", "g2.5-flash", "g2.5-flash-lite", "g2.0-flash"]
+      : ["g2.5-pro", "g2.5-flash", "g2.5-flash-lite", "g2.0-flash"]; // Start with pro for better accuracy
+
+  const reservation = await llmScheduler.acquire(preferred, estimatedTokens);
+  const model = reservation.modelId;
+
+  try {
+    // Use different prompts for math vs non-math subjects
+    const prompt = isMathSubject ? getMathPrompt() : getNonMathPrompt();
     // Call GenAI SDK with downloaded image buffer (sent as base64 inlineData)
     const resp = await callGenAISDK(model, prompt, imageBuffer);
     const sdkRaw = resp.sdkRaw ?? resp.raw;

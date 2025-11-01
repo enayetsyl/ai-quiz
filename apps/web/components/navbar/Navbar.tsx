@@ -6,7 +6,15 @@ import { useAppSelector } from "@/lib/hooks/redux";
 import { Button } from "@/components/ui/button";
 import { LogoutButton } from "@/components/auth/LogoutButton";
 import { cn } from "@/lib/utils";
-import { BookOpen, Home, LogIn, Upload as UploadIcon } from "lucide-react";
+import {
+  BookOpen,
+  Home,
+  LogIn,
+  Upload as UploadIcon,
+  Sparkles,
+  FileQuestion,
+  Database,
+} from "lucide-react";
 
 export function Navbar() {
   const pathname = usePathname();
@@ -15,8 +23,25 @@ export function Navbar() {
   const navItems = [
     { href: "/", label: "Home", icon: Home, requireAuth: true },
     { href: "/taxonomy", label: "Taxonomy", icon: BookOpen, requireAuth: true },
-    { href: "/uploads", label: "Upload", icon: UploadIcon, requireAuth: true },
-    // Add more routes here as they're created
+    { href: "/uploads", label: "Uploads", icon: UploadIcon, requireAuth: true },
+    {
+      href: "/generation",
+      label: "Generation",
+      icon: Sparkles,
+      requireAuth: true,
+    },
+    {
+      href: "/questions",
+      label: "Questions",
+      icon: FileQuestion,
+      requireAuth: true,
+    },
+    {
+      href: "/question-bank",
+      label: "Question Bank",
+      icon: Database,
+      requireAuth: true,
+    },
   ];
 
   const filteredNavItems = navItems.filter(

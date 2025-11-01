@@ -9,6 +9,10 @@ import {
   useRequeueUpload,
   useRegeneratePage,
 } from "@/lib/hooks/useUpload";
+import {
+  useRequeuePageGeneration,
+  useRegeneratePageGeneration,
+} from "@/lib/hooks/useGeneration";
 import { PageAttemptsDialog } from "@/components/upload/PageAttemptsDialog";
 import { UploadAttemptsDialog } from "@/components/upload/UploadAttemptsDialog";
 import {
@@ -44,6 +48,8 @@ export default function UploadStatusPage() {
   const { data: uploadStatus, isLoading, error } = useUploadStatus(uploadId);
   const requeueMutation = useRequeueUpload();
   const regenerateMutation = useRegeneratePage();
+  const requeuePageGenerationMutation = useRequeuePageGeneration();
+  const regeneratePageGenerationMutation = useRegeneratePageGeneration();
   const [selectedPageId, setSelectedPageId] = useState<string | null>(null);
   const [selectedPageNumber, setSelectedPageNumber] = useState<number>(0);
   const [showUploadAttempts, setShowUploadAttempts] = useState(false);
@@ -214,7 +220,7 @@ export default function UploadStatusPage() {
                           />
                         </div>
                       )}
-                      <div className="flex gap-2 mt-2">
+                      <div className="flex flex-col gap-2 mt-2">
                         <Button
                           variant="ghost"
                           size="sm"
@@ -222,32 +228,102 @@ export default function UploadStatusPage() {
                             setSelectedPageId(page.id);
                             setSelectedPageNumber(page.pageNumber);
                           }}
-                          className="flex-1"
+                          className="w-full"
                         >
                           <FileText className="mr-2 h-4 w-4" />
                           View Attempts
                         </Button>
-                        {page.status === "failed" && (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleRegeneratePage(page.id)}
-                            disabled={regenerateMutation.isPending}
-                            className="flex-1"
-                          >
-                            {regenerateMutation.isPending ? (
-                              <>
-                                <Loader2Icon className="mr-2 h-4 w-4 animate-spin" />
-                                Regenerating...
-                              </>
-                            ) : (
-                              <>
-                                <RefreshCw className="mr-2 h-4 w-4" />
-                                Regenerate
-                              </>
-                            )}
-                          </Button>
-                        )}
+                        <div className="flex gap-2">
+                          {page.status === "failed" && (
+                            <>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleRegeneratePage(page.id)}
+                                disabled={
+                                  regenerateMutation.isPending ||
+                                  regeneratePageGenerationMutation.isPending
+                                }
+                                className="flex-1"
+                                title="Regenerate via Upload API"
+                              >
+                                {regenerateMutation.isPending ? (
+                                  <>
+                                    <Loader2Icon className="mr-2 h-4 w-4 animate-spin" />
+                                    Regenerating...
+                                  </>
+                                ) : (
+                                  <>
+                                    <RefreshCw className="mr-2 h-4 w-4" />
+                                    Regenerate
+                                  </>
+                                )}
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={async () => {
+                                  try {
+                                    await regeneratePageGenerationMutation.mutateAsync(
+                                      { pageId: page.id }
+                                    );
+                                  } catch {
+                                    // Error handled by mutation
+                                  }
+                                }}
+                                disabled={
+                                  regenerateMutation.isPending ||
+                                  regeneratePageGenerationMutation.isPending
+                                }
+                                className="flex-1"
+                                title="Regenerate via Generation API (hard-replace)"
+                              >
+                                {regeneratePageGenerationMutation.isPending ? (
+                                  <>
+                                    <Loader2Icon className="mr-2 h-4 w-4 animate-spin" />
+                                    Regenerating...
+                                  </>
+                                ) : (
+                                  <>
+                                    <RefreshCw className="mr-2 h-4 w-4" />
+                                    Hard Reset
+                                  </>
+                                )}
+                              </Button>
+                            </>
+                          )}
+                          {(page.status === "queued" ||
+                            page.status === "generating" ||
+                            page.status === "pending") && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={async () => {
+                                try {
+                                  await requeuePageGenerationMutation.mutateAsync(
+                                    { pageId: page.id }
+                                  );
+                                } catch {
+                                  // Error handled by mutation
+                                }
+                              }}
+                              disabled={requeuePageGenerationMutation.isPending}
+                              className="w-full"
+                            >
+                              {requeuePageGenerationMutation.isPending ? (
+                                <>
+                                  <Loader2Icon className="mr-2 h-4 w-4 animate-spin" />
+                                  Requeuing...
+                                </>
+                              ) : (
+                                <>
+                                  <RefreshCw className="mr-2 h-4 w-4" />
+                                  Requeue Generation
+                                </>
+                              )}
+                            </Button>
+                          )}
+                        </div>
                       </div>
                     </div>
                   );

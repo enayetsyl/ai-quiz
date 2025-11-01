@@ -10,6 +10,7 @@ import sharp from "sharp";
 import { downloadToBuffer, uploadBuffer } from "../lib/s3";
 import { prisma } from "../lib/prisma";
 import { logger } from "../lib/logger";
+import { generationQueue } from "../lib/queue";
 
 const PROMPT_VERSION = process.env.PROMPT_VERSION || "v1";
 
@@ -27,10 +28,11 @@ async function pdftoppmPage(
   outPrefix: string,
   page: number
 ) {
-  // create single-page PNG using -f and -l
+  // Use higher resolution (400 DPI) for better Bengali character recognition
+  // Bengali characters like ন/ম, র/ড়/ঢ়, ত/ৎ/থ need higher resolution to distinguish
   await execFilePromise("pdftoppm", [
     "-r",
-    "300",
+    "400", // Increased from 300 to 400 for better Bengali OCR accuracy
     "-png",
     "-f",
     String(page),
@@ -93,8 +95,21 @@ async function handleAnalyzeAndRasterize(job: Job) {
 
     // create page rows and process pages sequentially, logging attempts on failure
     for (let p = 1; p <= pages; p++) {
-      const pageRow = await prisma.page.create({
-        data: {
+      // Use upsert to handle cases where page might already exist (e.g., job retry)
+      // If page exists, reset status to "queued" to retry processing
+      const pageRow = await prisma.page.upsert({
+        where: {
+          uploadId_pageNumber: {
+            uploadId,
+            pageNumber: p,
+          },
+        },
+        update: {
+          status: "queued" as any, // Reset status for retry
+          s3PngKey: "", // Reset in case we need to regenerate
+          s3ThumbKey: "", // Reset in case we need to regenerate
+        },
+        create: {
           uploadId,
           pageNumber: p,
           status: "queued" as any,
@@ -108,8 +123,29 @@ async function handleAnalyzeAndRasterize(job: Job) {
       try {
         // rasterize single page
         await pdftoppmPage(localPdfPath, outPrefix, p);
-        const pngPath = `${outPrefix}-${p}.png`;
-        const pngBuffer = await fs.readFile(pngPath);
+        
+        // pdftoppm generates files with zero-padded page numbers (e.g., page-9-000009.png)
+        // Find the actual generated file
+        const dirFiles = await fs.readdir(tmpDir);
+        const pngFile = dirFiles.find((f) =>
+          f.startsWith(`page-${p}-`) && f.endsWith(".png")
+        );
+        if (!pngFile) {
+          throw new Error(
+            `PNG file not found for page ${p}. Expected pattern: page-${p}-*.png`
+          );
+        }
+        const pngPath = path.join(tmpDir, pngFile);
+        let pngBuffer = await fs.readFile(pngPath);
+
+        // Enhance image for better Bengali OCR: increase contrast and sharpen
+        // This helps distinguish similar Bengali characters (ন vs ম, র vs ড়, etc.)
+        const enhancedBuffer = await sharp(pngBuffer)
+          .normalize() // Improve contrast
+          .sharpen({ sigma: 1.5 }) // Sharpen edges for better character definition
+          .png({ quality: 100 }) // Maximum quality
+          .toBuffer();
+        pngBuffer = Buffer.from(enhancedBuffer);
 
         const pngKey = `uploads/${uploadId}/pages/${p}.png`;
         await uploadBuffer(pngBuffer, pngKey, "image/png");
@@ -121,16 +157,6 @@ async function handleAnalyzeAndRasterize(job: Job) {
           .toBuffer();
         const thumbKey = `uploads/${uploadId}/pages/${p}_thumb.jpg`;
         await uploadBuffer(thumbBuffer, thumbKey, "image/jpeg");
-
-        await prisma.page.update({
-          where: { id: pageRow.id },
-          data: {
-            s3PngKey: pngKey,
-            s3ThumbKey: thumbKey,
-            status: "complete" as any,
-            lastGeneratedAt: new Date(),
-          },
-        });
 
         // record success attempt
         const lastAttempt = await prisma.pageGenerationAttempt.findFirst({
@@ -151,6 +177,31 @@ async function handleAnalyzeAndRasterize(job: Job) {
         logger.info(
           { uploadId, page: p, durationMs: Date.now() - pageStart },
           "Page rasterized"
+        );
+
+        // Automatically enqueue LLM generation after successful rasterization
+        await generationQueue.add(
+          "generate:page",
+          { pageId: pageRow.id },
+          {
+            attempts: 3,
+            backoff: { type: "exponential", delay: 5000 },
+          }
+        );
+
+        // Update page with S3 keys and set status to "queued" for LLM generation
+        await prisma.page.update({
+          where: { id: pageRow.id },
+          data: {
+            s3PngKey: pngKey,
+            s3ThumbKey: thumbKey,
+            status: "queued" as any, // Queued for LLM generation
+            lastGeneratedAt: new Date(),
+          },
+        });
+        logger.info(
+          { uploadId, page: p, pageId: pageRow.id },
+          "LLM generation enqueued"
         );
       } catch (err: any) {
         // log attempt
@@ -210,8 +261,29 @@ async function handleRasterizePage(job: Job) {
     const pageStart = Date.now();
     try {
       await pdftoppmPage(localPdfPath, outPrefix, pageNumber);
-      const pngPath = `${outPrefix}-${pageNumber}.png`;
-      const pngBuffer = await fs.readFile(pngPath);
+      
+      // pdftoppm generates files with zero-padded page numbers (e.g., page-9-000009.png)
+      // Find the actual generated file
+      const dirFiles = await fs.readdir(tmpDir);
+      const pngFile = dirFiles.find((f) =>
+        f.startsWith(`page-${pageNumber}-`) && f.endsWith(".png")
+      );
+      if (!pngFile) {
+        throw new Error(
+          `PNG file not found for page ${pageNumber}. Expected pattern: page-${pageNumber}-*.png`
+        );
+      }
+      const pngPath = path.join(tmpDir, pngFile);
+      let pngBuffer = await fs.readFile(pngPath);
+
+      // Enhance image for better Bengali OCR: increase contrast and sharpen
+      // This helps distinguish similar Bengali characters (ন vs ম, র vs ড়, etc.)
+      const enhancedBuffer = await sharp(pngBuffer)
+        .normalize() // Improve contrast
+        .sharpen({ sigma: 1.5 }) // Sharpen edges for better character definition
+        .png({ quality: 100 }) // Maximum quality
+        .toBuffer();
+      pngBuffer = Buffer.from(enhancedBuffer);
 
       const pngKey = `uploads/${uploadId}/pages/${pageNumber}.png`;
       await uploadBuffer(pngBuffer, pngKey, "image/png");
@@ -222,16 +294,6 @@ async function handleRasterizePage(job: Job) {
         .toBuffer();
       const thumbKey = `uploads/${uploadId}/pages/${pageNumber}_thumb.jpg`;
       await uploadBuffer(thumbBuffer, thumbKey, "image/jpeg");
-
-      await prisma.page.update({
-        where: { id: pageId },
-        data: {
-          s3PngKey: pngKey,
-          s3ThumbKey: thumbKey,
-          status: "complete" as any,
-          lastGeneratedAt: new Date(),
-        },
-      });
 
       const lastAttempt = await prisma.pageGenerationAttempt.findFirst({
         where: { pageId },
@@ -251,6 +313,31 @@ async function handleRasterizePage(job: Job) {
       logger.info(
         { uploadId, page: pageNumber, durationMs: Date.now() - pageStart },
         "Rasterize page complete"
+      );
+
+      // Automatically enqueue LLM generation after successful rasterization
+      await generationQueue.add(
+        "generate:page",
+        { pageId },
+        {
+          attempts: 3,
+          backoff: { type: "exponential", delay: 5000 },
+        }
+      );
+
+      // Update page with S3 keys and set status to "queued" for LLM generation
+      await prisma.page.update({
+        where: { id: pageId },
+        data: {
+          s3PngKey: pngKey,
+          s3ThumbKey: thumbKey,
+          status: "queued" as any, // Queued for LLM generation
+          lastGeneratedAt: new Date(),
+        },
+      });
+      logger.info(
+        { uploadId, page: pageNumber, pageId },
+        "LLM generation enqueued"
       );
     } catch (err: any) {
       const lastAttempt = await prisma.pageGenerationAttempt.findFirst({

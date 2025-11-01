@@ -108,7 +108,7 @@ apiClient.interceptors.response.use(
 /**
  * Typed API response wrapper
  */
-export interface ApiResponse<T = unknown> {
+export interface ApiResponse<T = unknown, M = unknown> {
   success: boolean;
   data?: T;
   message?: string;
@@ -116,6 +116,7 @@ export interface ApiResponse<T = unknown> {
     message?: string;
     code?: string;
   };
+  meta?: M;
   status?: number;
 }
 

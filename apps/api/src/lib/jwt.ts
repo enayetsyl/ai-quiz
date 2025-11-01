@@ -1,6 +1,6 @@
 import jwt from "jsonwebtoken";
 
-const ACCESS_TOKEN_EXP = "15m";
+const ACCESS_TOKEN_EXP = "2d";
 const REFRESH_TOKEN_EXP = "30d";
 
 const ACCESS_COOKIE_NAME = "access_token";
@@ -42,7 +42,7 @@ export const cookieNames = {
 };
 
 export const cookieOptions = {
-  access: () => getCookieOpts(15 * 60 * 1000),
+  access: () => getCookieOpts(2 * 24 * 60 * 60 * 1000),
   refresh: () => getCookieOpts(30 * 24 * 60 * 60 * 1000),
 };
 
