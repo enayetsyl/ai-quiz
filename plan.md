@@ -145,9 +145,8 @@ This plan translates `nctb_quiz_generator_mvp_requirements_updated.md` into acti
 
 ## Best Practices Checklist
 - Modular architecture: domain services, controllers, repositories separated.
-- Shared TypeScript types between API and frontend via generated SDK or shared package.
+- Shared TypeScript types between API and frontend via generated SDK or shared **package**.
 - DRY: centralize constants (statuses, difficulty ratios) and reusable UI components.
 - KISS: simple, predictable APIs and business logic; avoid premature abstraction.
 - Security: validate inputs with Zod, sanitize outputs, manage secrets via env/config layers, enforce HTTPS in production (Nginx + TLS).
 - Documentation: keep endpoint references and setup instructions updated alongside README/plan.
-

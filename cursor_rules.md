@@ -79,17 +79,26 @@ Below are workspace rules, conventions, and guardrails to align development with
     - **No `any` rule:** Do not use `any` in the codebase. Prefer explicit typing and typed helper wrappers. For library type mismatches (e.g., `pino` + `pino-http`), use correctly-parameterized generic types rather than `any`.
     - Example: prefer `import pino, { Logger as PinoLogger } from 'pino'; const logger: PinoLogger<never, boolean> = pino(...)` over casting to `any`.
 
-15. Localization
+15. Frontend Development Standards
 
-    - UI language: Bangla-only for editorial UI; internal docs and plan in English.
+    - **API Calls:** Always use TanStack Query (React Query) for all API calls. Do not use fetch or axios directly in components.
+    - **Axios Configuration:** Centralize axios base URL configuration and implement axios interceptors for request/response handling (e.g., auth tokens, error handling).
+    - **UI Components:** Always use shadcn/ui components. Do not create custom components when shadcn/ui equivalents exist. Install new shadcn/ui components as needed with `npx shadcn@latest add [component-name]`.
+    - **Loading States:** Use loaders and skeletons where relevant to improve UX during data fetching and async operations.
+    - **Forms:** All forms must use React Hook Form (RHF) with Zod validation schemas. Combine RHF's `useForm` with zodResolver for validation.
+    - **Toast Notifications:** Centralize error toast handling. All error and success messages must be displayed using toast notifications. Create a centralized toast utility/hook for consistent error handling across the application.
 
-16. Acceptance checks (pre-release)
+16. Localization
+
+    - UI language: Use only English.
+
+17. Acceptance checks (pre-release)
 
     - Upload a 20MB 100-page PDF → pages PNGs + thumbnails in S3 with presigned URLs.
     - Generation respects 30 RPM and 5 concurrency; retry policy and error logs present.
     - Editorial flows: filters, bulk actions, publish creates locked copy.
 
-17. Onboarding notes
+18. Onboarding notes
     - Run `docker compose up` for local dev.
     - Seed classes 6–10 on first run.
     - Use `scripts/` for common tasks: `start:dev`, `migrate`, `seed`, `test`.
