@@ -274,7 +274,6 @@ model QuestionBank {
   @@index([classId, subjectId, chapterId], map: "idx_qb_taxonomy")
   @@index([createdAt], map: "idx_qb_created_at")
   @@unique([classId, subjectId, seqNo], map: "uq_qb_seq_per_subject_class")
-  @@unique([subjShortCode], map: "uq_qb_subj_short_code")
   @@map("question_bank")
 }
 

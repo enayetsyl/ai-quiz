@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import { useQuestions, useBulkActionQuestions } from "@/lib/hooks/useQuestion";
 import { useClasses, useSubjects, useChapters } from "@/lib/hooks/useTaxonomy";
 import type { QuestionFilters } from "@/lib/api/question/question";
@@ -36,6 +35,7 @@ import {
 } from "@/components/ui/pagination";
 import { CheckCircle2, XCircle, AlertCircle, Clock, Eye } from "lucide-react";
 import { QuestionEditor } from "./QuestionEditor";
+import { QuestionDetailModal } from "./QuestionDetailModal";
 import Image from "next/image";
 
 const statusIcons = {
@@ -53,7 +53,6 @@ const statusColors = {
 } as const;
 
 export function QuestionsReview() {
-  const router = useRouter();
   const [filters, setFilters] = useState<QuestionFilters>({
     status: undefined,
   });
@@ -70,6 +69,7 @@ export function QuestionsReview() {
     new Set()
   );
   const [editingQuestion, setEditingQuestion] = useState<string | null>(null);
+  const [viewingQuestion, setViewingQuestion] = useState<string | null>(null);
   const [viewingImage, setViewingImage] = useState<string | null>(null);
 
   const { data: classes } = useClasses();
@@ -374,7 +374,7 @@ export function QuestionsReview() {
                           key={question.id}
                           className="cursor-pointer hover:bg-muted/50"
                           onClick={(e) => {
-                            // Don't navigate if clicking checkbox or buttons
+                            // Don't open modal if clicking checkbox or buttons
                             if (
                               (e.target as HTMLElement).closest(
                                 'input[type="checkbox"], button'
@@ -382,7 +382,7 @@ export function QuestionsReview() {
                             ) {
                               return;
                             }
-                            router.push(`/questions/${question.id}`);
+                            setViewingQuestion(question.id);
                           }}
                         >
                           <TableCell onClick={(e) => e.stopPropagation()}>
@@ -427,7 +427,7 @@ export function QuestionsReview() {
                           <TableCell>
                             <div className="flex items-center gap-2">
                               <StatusIcon className="h-4 w-4" />
-                              <Badge variant={statusColors[question.status]}>
+                              <Badge className="capitalize" variant={statusColors[question.status]}>
                                 {question.status.replace("_", " ")}
                               </Badge>
                             </div>
@@ -550,6 +550,13 @@ export function QuestionsReview() {
         <QuestionEditor
           questionId={editingQuestion}
           onClose={() => setEditingQuestion(null)}
+        />
+      )}
+
+      {viewingQuestion && (
+        <QuestionDetailModal
+          questionId={viewingQuestion}
+          onClose={() => setViewingQuestion(null)}
         />
       )}
 

@@ -113,6 +113,7 @@ export default function UploadsPage() {
                               upload.status as keyof typeof statusBadgeVariants
                             ] || "secondary"
                           }
+                          className="capitalize"
                         >
                           {upload.status}
                         </Badge>

@@ -277,9 +277,6 @@ CREATE INDEX "idx_qb_created_at" ON "question_bank"("created_at");
 CREATE UNIQUE INDEX "uq_qb_seq_per_subject_class" ON "question_bank"("class_id", "subject_id", "seq_no");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "uq_qb_subj_short_code" ON "question_bank"("subj_short_code");
-
--- CreateIndex
 CREATE INDEX "idx_attempts_page" ON "page_generation_attempts"("page_id");
 
 -- CreateIndex

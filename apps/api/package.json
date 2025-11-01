@@ -16,8 +16,10 @@
     "format": "prettier --write 'src/**/*.{ts,tsx,json,md}'",
     "migrate:dev": "prisma migrate dev",
     "migrate:deploy": "prisma migrate deploy",
+    "migrate:reset": "prisma migrate reset",
     "prisma:generate": "prisma generate",
-    "seed": "node dist/prisma/seed.js",
+    "seed": "node prisma/seed.js",
+    "db:reset": "prisma migrate reset --force && prisma generate && node prisma/seed.js",
     "test": "vitest"
   },
   "dependencies": {
