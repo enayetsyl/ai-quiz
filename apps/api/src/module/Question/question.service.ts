@@ -2,9 +2,10 @@ import prisma from "../../lib";
 import { HttpError } from "../../lib/http";
 import { QuestionFilterParams, BulkActionRequest } from "./question.types";
 import { getPresignedUrlForKey } from "../../lib/s3";
+import { Prisma } from "@prisma/client";
 
 export async function listQuestions(filters: QuestionFilterParams) {
-  const where: any = {};
+  const where: Prisma.QuestionWhereInput = {};
 
   if (filters.classId) where.classId = filters.classId;
   if (filters.subjectId) where.subjectId = filters.subjectId;
@@ -52,9 +53,9 @@ export async function listQuestions(filters: QuestionFilterParams) {
 
   // Add presigned URLs for page images
   const questionsWithUrls = await Promise.all(
-    questions.map(async (q) => {
-      let pngUrl = null;
-      let thumbUrl = null;
+    questions.map(async (q: (typeof questions)[0]) => {
+      let pngUrl: string | null = null;
+      let thumbUrl: string | null = null;
 
       if (q.page?.s3PngKey) {
         pngUrl = await getPresignedUrlForKey(q.page.s3PngKey);
@@ -112,8 +113,8 @@ export async function getQuestionById(questionId: string) {
     throw new HttpError("Question not found", 404);
   }
 
-  let pngUrl = null;
-  let thumbUrl = null;
+  let pngUrl: string | null = null;
+  let thumbUrl: string | null = null;
 
   if (question.page?.s3PngKey) {
     pngUrl = await getPresignedUrlForKey(question.page.s3PngKey);
@@ -163,14 +164,14 @@ export async function updateQuestion(
     );
   }
 
-  const updateData: any = { ...data };
+  const updateData: Prisma.QuestionUpdateInput & { reviewedBy?: string } = { ...data };
   if (data.status && reviewedBy) {
     updateData.reviewedBy = reviewedBy;
   }
 
   return await prisma.question.update({
     where: { id: questionId },
-    data: updateData,
+    data: updateData as Prisma.QuestionUpdateInput,
     include: {
       page: {
         include: {
@@ -243,7 +244,7 @@ export async function bulkActionQuestions(
 
     case "delete":
       // Check if any are locked
-      const lockedQuestions = questions.filter((q) => q.isLockedAfterAdd);
+      const lockedQuestions = questions.filter((q: (typeof questions)[0]) => q.isLockedAfterAdd);
       if (lockedQuestions.length > 0) {
         throw new HttpError(
           `Cannot delete ${lockedQuestions.length} locked question(s)`,

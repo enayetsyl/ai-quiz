@@ -22,3 +22,4 @@ logs/
 # Lock files (if you'd like to ignore locks uncomment)
 # package-lock.json
 # yarn.lock
+deployment.md

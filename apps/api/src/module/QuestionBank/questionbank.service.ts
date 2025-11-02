@@ -1,6 +1,7 @@
 import prisma from "../../lib";
 import { HttpError } from "../../lib/http";
 import { getPresignedUrlForKey } from "../../lib/s3";
+import { Prisma } from "@prisma/client";
 
 export async function publishQuestionsToBank(
   questionIds: string[],
@@ -25,7 +26,7 @@ export async function publishQuestionsToBank(
   // Group questions by class and subject for sequence generation
   const groupedByClassSubject = new Map<string, Array<(typeof questions)[0]>>();
 
-  questions.forEach((q) => {
+  questions.forEach((q: (typeof questions)[0]) => {
     // Use a delimiter that won't appear in UUIDs (like "::")
     const key = `${q.classId}::${q.subjectId}`;
     if (!groupedByClassSubject.has(key)) {
@@ -34,7 +35,7 @@ export async function publishQuestionsToBank(
     groupedByClassSubject.get(key)!.push(q);
   });
 
-  const publishedItems = [];
+  const publishedItems: Awaited<ReturnType<typeof prisma.questionBank.create>>[] = [];
 
   // Process each group
   for (const [key, groupQuestions] of groupedByClassSubject) {
@@ -122,7 +123,7 @@ export async function listQuestionBank(filters: {
   language?: "bn" | "en";
   difficulty?: "easy" | "medium" | "hard";
 }) {
-  const where: any = {};
+  const where: Prisma.QuestionBankWhereInput = {};
 
   if (filters.classId) where.classId = filters.classId;
   if (filters.subjectId) where.subjectId = filters.subjectId;
@@ -159,9 +160,9 @@ export async function listQuestionBank(filters: {
 
   // Add presigned URLs for page images
   const itemsWithUrls = await Promise.all(
-    items.map(async (item) => {
-      let pngUrl = null;
-      let thumbUrl = null;
+    items.map(async (item: (typeof items)[0]) => {
+      let pngUrl: string | null = null;
+      let thumbUrl: string | null = null;
 
       const page = item.sourceQuestion?.page || item.page;
       if (page?.s3PngKey) {
@@ -212,8 +213,8 @@ export async function getQuestionBankById(itemId: string) {
     throw new HttpError("Question Bank item not found", 404);
   }
 
-  let pngUrl = null;
-  let thumbUrl = null;
+  let pngUrl: string | null = null;
+  let thumbUrl: string | null = null;
 
   const page = item.sourceQuestion?.page || item.page;
   if (page?.s3PngKey) {

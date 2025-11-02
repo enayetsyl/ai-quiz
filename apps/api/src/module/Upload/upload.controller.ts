@@ -82,18 +82,18 @@ export const listUploads = async (req: Request, res: Response) => {
 
   // Calculate status for each upload based on pages
   const uploadsWithStatus = await Promise.all(
-    uploads.map(async (upload) => {
+    uploads.map(async (upload: (typeof uploads)[0]) => {
       const pages = await prismaLib.prisma.page.findMany({
         where: { uploadId: upload.id },
         select: { status: true },
       });
 
       const completedCount = pages.filter(
-        (p) => p.status === "complete"
+        (p: (typeof pages)[0]) => p.status === "complete"
       ).length;
-      const failedCount = pages.filter((p) => p.status === "failed").length;
+      const failedCount = pages.filter((p: (typeof pages)[0]) => p.status === "failed").length;
       const processingCount = pages.filter(
-        (p) => p.status === "queued" || p.status === "generating"
+        (p: (typeof pages)[0]) => p.status === "queued" || p.status === "generating"
       ).length;
 
       let overallStatus = "pending";
@@ -254,7 +254,7 @@ export const getUploadAttempts = async (req: Request, res: Response) => {
     where: { uploadId },
     select: { id: true },
   });
-  const pageIds = pages.map((p) => p.id);
+  const pageIds = pages.map((p: (typeof pages)[0]) => p.id);
   const attempts = await prismaLib.prisma.pageGenerationAttempt.findMany({
     where: { pageId: { in: pageIds } },
     orderBy: { createdAt: "desc" },
