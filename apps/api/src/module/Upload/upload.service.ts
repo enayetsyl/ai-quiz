@@ -36,7 +36,7 @@ export async function handleUpload({
       uploadedBy: uploadedBy ?? null,
       originalFilename: originalname,
       mimeType: mimetype,
-      s3Bucket: process.env.S3_BUCKET_UPLOADS as string,
+      s3Bucket: process.env.R2_BUCKET as string,
       s3PdfKey: "",
       pagesCount: 0,
       fileMeta: {},

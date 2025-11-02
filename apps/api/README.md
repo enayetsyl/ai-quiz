@@ -39,10 +39,15 @@ GENAI_MODEL_PRO=gemini-2.5-pro
 - `WORKER_CONCURRENCY` (default `5`)
 - `REDIS_URL` (e.g., `redis://127.0.0.1:6379`)
 
-## Other helpful envs
+## Cloudflare R2 Storage
 
-- `S3_BUCKET_UPLOADS` — name of uploads bucket
-- `AWS_REGION` — AWS region
+- `R2_ACCOUNT_ID` — Your Cloudflare account ID
+- `R2_ACCESS_KEY_ID` — R2 API token access key ID
+- `R2_SECRET_ACCESS_KEY` — R2 API token secret access key
+- `R2_BUCKET` — name of R2 bucket for uploads
+- `R2_PUBLIC_URL` — (optional) Custom domain URL for public access
+
+See `CLOUDFLARE_R2_SETUP.md` for detailed setup instructions.
 
 ---
 

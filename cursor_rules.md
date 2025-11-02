@@ -15,7 +15,7 @@ Below are workspace rules, conventions, and guardrails to align development with
 3. Environment & Secrets
 
    - Keep secrets out of git; use `.env.local` for local development and environment-specific secret stores in production.
-   - Required env vars: `DATABASE_URL`, `REDIS_URL`, `AWS_REGION`, `S3_BUCKET_UPLOADS`, `INTERNAL_API_BEARER`, `SES_FROM`.
+   - Required env vars: `DATABASE_URL`, `REDIS_URL`, `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET`, `INTERNAL_API_BEARER`, `SES_FROM`.
 
 4. Database & Prisma
 
@@ -25,7 +25,7 @@ Below are workspace rules, conventions, and guardrails to align development with
 5. Uploads & Storage
 
    - Validate uploads: max **20 MB**, max **100 pages**.
-   - Store original PDFs and generated PNGs/thumbnails in S3 with stable keys. Serve via pre-signed URLs.
+   - Store original PDFs and generated PNGs/thumbnails in Cloudflare R2 with stable keys. Serve via pre-signed URLs.
 
 6. LLM Pipeline
 
@@ -67,7 +67,7 @@ Below are workspace rules, conventions, and guardrails to align development with
 13. Security
 
     - Enforce password policy: min 8 chars, include letter and number.
-    - Pre-signed S3 URLs for asset access; bind Redis to localhost/private IP.
+    - Pre-signed R2 URLs for asset access; bind Redis to localhost/private IP.
 
 14. Coding Conventions
 
@@ -94,7 +94,7 @@ Below are workspace rules, conventions, and guardrails to align development with
 
 17. Acceptance checks (pre-release)
 
-    - Upload a 20MB 100-page PDF → pages PNGs + thumbnails in S3 with presigned URLs.
+    - Upload a 20MB 100-page PDF → pages PNGs + thumbnails in R2 with presigned URLs.
     - Generation respects 30 RPM and 5 concurrency; retry policy and error logs present.
     - Editorial flows: filters, bulk actions, publish creates locked copy.
 
