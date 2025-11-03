@@ -17,7 +17,7 @@ app.use(
 );
 
 // CORS configuration - must come before other middleware that sets headers
-const whitelist = ["http://localhost:3000"];
+const whitelist = ["http://localhost:3000", "https://ai-quiz-mocha.vercel.app","http://localhost:3001", "https://quiz-generation.shafayet.me"];
 app.use(
   cors({
     origin: (
