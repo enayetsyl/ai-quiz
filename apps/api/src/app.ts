@@ -38,10 +38,18 @@ app.use(
     origin: (
       origin: string | undefined,
       cb: (err: Error | null, allow?: boolean) => void
-    ) =>
-      isAllowedOrigin(origin)
+    ) => {
+      if (!origin) return cb(null, true);
+      const allowed =
+        whitelist.has(origin) || /^https:\/\/.*\.vercel\.app$/.test(origin);
+      if (!allowed) {
+        // Log the exact origin for troubleshooting when blocked
+        console.error("CORS blocked Origin:", origin);
+      }
+      return allowed
         ? cb(null, true)
-        : cb(new Error("Not allowed by CORS")),
+        : cb(new Error(`Not allowed by CORS: ${origin}`));
+    },
     credentials: true,
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization", "Accept", "Origin"],
