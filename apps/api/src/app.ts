@@ -25,13 +25,10 @@ const whitelist = new Set([
   "https://quiz-generation.shafayet.me", // if you serve any web from API host
 ]);
 
-const isAllowedOrigin = (origin?: string) => {
-  if (!origin) return true; // curl/mobile
-  if (whitelist.has(origin)) return true;
-  // Allow all Vercel preview deployments
-  if (/^https:\/\/.*\.vercel\.app$/.test(origin)) return true;
-  return false;
-};
+app.use((req, _res, next) => {
+  console.log("Origin header:", req.headers.origin, "→", req.method, req.path);
+  next();
+});
 
 app.use(
   cors({
