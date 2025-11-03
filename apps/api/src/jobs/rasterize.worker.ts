@@ -11,6 +11,7 @@ import { downloadToBuffer, uploadBuffer } from "../lib/s3";
 import { prisma } from "../lib/prisma";
 import { logger } from "../lib/logger";
 import { generationQueue } from "../lib/queue";
+import IORedis from "ioredis";
 
 const PROMPT_VERSION = process.env.PROMPT_VERSION || "v1";
 
@@ -123,12 +124,12 @@ async function handleAnalyzeAndRasterize(job: Job) {
       try {
         // rasterize single page
         await pdftoppmPage(localPdfPath, outPrefix, p);
-        
+
         // pdftoppm generates files with zero-padded page numbers (e.g., page-9-000009.png)
         // Find the actual generated file
         const dirFiles = await fs.readdir(tmpDir);
-        const pngFile = dirFiles.find((f) =>
-          f.startsWith(`page-${p}-`) && f.endsWith(".png")
+        const pngFile = dirFiles.find(
+          (f) => f.startsWith(`page-${p}-`) && f.endsWith(".png")
         );
         if (!pngFile) {
           throw new Error(
@@ -261,12 +262,12 @@ async function handleRasterizePage(job: Job) {
     const pageStart = Date.now();
     try {
       await pdftoppmPage(localPdfPath, outPrefix, pageNumber);
-      
+
       // pdftoppm generates files with zero-padded page numbers (e.g., page-9-000009.png)
       // Find the actual generated file
       const dirFiles = await fs.readdir(tmpDir);
-      const pngFile = dirFiles.find((f) =>
-        f.startsWith(`page-${pageNumber}-`) && f.endsWith(".png")
+      const pngFile = dirFiles.find(
+        (f) => f.startsWith(`page-${pageNumber}-`) && f.endsWith(".png")
       );
       if (!pngFile) {
         throw new Error(
@@ -373,6 +374,10 @@ async function handleRasterizePage(job: Job) {
   }
 }
 
+const connection = new IORedis(
+  process.env.REDIS_URL || "redis://localhost:6379"
+);
+
 const worker = new Worker(
   "rasterize",
   async (job) => {
@@ -382,10 +387,7 @@ const worker = new Worker(
     return;
   },
   {
-    connection: {
-      host: process.env.REDIS_URL || "127.0.0.1",
-      port: 6379,
-    } as any,
+    connection: connection,
   }
 );
 

@@ -9,6 +9,7 @@ import { downloadToBuffer } from "../lib/s3";
 import { prisma } from "../lib/prisma";
 import { logger } from "../lib/logger";
 import { extractTokenUsage, calculateCost } from "../lib/llmCost";
+import IORedis from "ioredis";
 
 const PROMPT_VERSION = process.env.PROMPT_VERSION || "v1";
 
@@ -247,7 +248,11 @@ async function processPage(job: Job) {
       // Record usage event even on validation failure (API call was made)
       const tokenUsage = extractTokenUsage(sdkRaw);
       if (tokenUsage) {
-        const estimatedCost = calculateCost(model, tokenUsage.tokensIn, tokenUsage.tokensOut);
+        const estimatedCost = calculateCost(
+          model,
+          tokenUsage.tokensIn,
+          tokenUsage.tokensOut
+        );
         await prisma.llmUsageEvent.create({
           data: {
             pageId: page.id,
@@ -312,7 +317,11 @@ async function processPage(job: Job) {
     // Extract token usage and create LlmUsageEvent
     const tokenUsage = extractTokenUsage(sdkRaw);
     if (tokenUsage) {
-      const estimatedCost = calculateCost(model, tokenUsage.tokensIn, tokenUsage.tokensOut);
+      const estimatedCost = calculateCost(
+        model,
+        tokenUsage.tokensIn,
+        tokenUsage.tokensOut
+      );
       await prisma.llmUsageEvent.create({
         data: {
           pageId: page.id,
@@ -334,7 +343,10 @@ async function processPage(job: Job) {
         "LLM usage event recorded"
       );
     } else {
-      logger.warn({ pageId, model }, "Could not extract token usage from response");
+      logger.warn(
+        { pageId, model },
+        "Could not extract token usage from response"
+      );
     }
 
     await prisma.page.update({
@@ -362,7 +374,11 @@ async function processPage(job: Job) {
     const errorResponse = (err as any)?.raw ?? (err as any)?.sdkRaw;
     const tokenUsage = extractTokenUsage(errorResponse);
     if (tokenUsage) {
-      const estimatedCost = calculateCost(model, tokenUsage.tokensIn, tokenUsage.tokensOut);
+      const estimatedCost = calculateCost(
+        model,
+        tokenUsage.tokensIn,
+        tokenUsage.tokensOut
+      );
       await prisma.llmUsageEvent.create({
         data: {
           pageId: page.id,
@@ -406,6 +422,10 @@ async function getLastAttemptNo(pageId: string) {
   return last?.attemptNo ?? 0;
 }
 
+const connection = new IORedis(
+  process.env.REDIS_URL || "redis://localhost:6379"
+);
+
 const worker = new Worker(
   "generation",
   async (job) => {
@@ -413,10 +433,7 @@ const worker = new Worker(
     return;
   },
   {
-    connection: {
-      host: process.env.REDIS_URL || "127.0.0.1",
-      port: 6379,
-    } as any,
+    connection: connection,
     concurrency: Number(process.env.WORKER_CONCURRENCY || 5),
   }
 );
