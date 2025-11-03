@@ -13,11 +13,15 @@ RUN apt-get update && \
 WORKDIR /usr/src/app
 
 COPY package.json package-lock.json ./
-RUN npm ci --omit=dev
+# Install all dependencies (including dev) for build
+RUN npm ci
 
 COPY . .
 
 RUN npm run build
+
+# Remove dev dependencies after build to reduce image size
+RUN npm ci --omit=dev && rm -rf /root/.npm
 
 EXPOSE 4080
 
