@@ -17,25 +17,40 @@ app.use(
 );
 
 // CORS configuration - must come before other middleware that sets headers
-const whitelist = ["http://localhost:3000", "https://ai-quiz-mocha.vercel.app","http://localhost:3001", "https://quiz-generation.shafayet.me"];
+// replace your whitelist/origin block with:
+const whitelist = new Set([
+  "http://localhost:3000",
+  "http://localhost:3001",
+  "https://ai-quiz-mocha.vercel.app", // your Vercel prod domain
+  "https://quiz-generation.shafayet.me", // if you serve any web from API host
+]);
+
+const isAllowedOrigin = (origin?: string) => {
+  if (!origin) return true; // curl/mobile
+  if (whitelist.has(origin)) return true;
+  // Allow all Vercel preview deployments
+  if (/^https:\/\/.*\.vercel\.app$/.test(origin)) return true;
+  return false;
+};
+
 app.use(
   cors({
     origin: (
       origin: string | undefined,
-      callback: (err: Error | null, allow?: boolean) => void
-    ) => {
-      // Allow requests with no origin (mobile apps, curl, etc.)
-      if (!origin || whitelist.includes(origin)) {
-        callback(null, true);
-      } else {
-        callback(new Error("Not allowed by CORS"));
-      }
-    },
-    credentials: true, // Required for httpOnly cookies
+      cb: (err: Error | null, allow?: boolean) => void
+    ) =>
+      isAllowedOrigin(origin)
+        ? cb(null, true)
+        : cb(new Error("Not allowed by CORS")),
+    credentials: true,
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization", "Accept", "Origin"],
+    optionsSuccessStatus: 204,
   })
 );
+
+// Ensure preflight is handled
+app.options("*", cors());
 
 app.use(express.json({ limit: "10mb" }));
 // parse cookies for auth flows
