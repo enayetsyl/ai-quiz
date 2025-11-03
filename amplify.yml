@@ -9,7 +9,10 @@ applications:
         build:
           commands:
             - npm run build
-      # IMPORTANT: no artifacts section here; let Amplify detect Next.js SSR
+      artifacts:
+        baseDirectory: .next
+        files:
+          - "**/*"
       cache:
         paths:
           - node_modules/**/*
