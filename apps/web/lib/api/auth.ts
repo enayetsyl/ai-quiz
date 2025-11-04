@@ -135,10 +135,20 @@ export const authApi = {
 
   /**
    * Get current user information
-   * This still uses the Express API directly since it doesn't need to set cookies
+   * Uses Next.js API route which proxies to Express and forwards cookies
    */
   getMe: async (): Promise<User> => {
-    const response = await apiClient.get<ApiResponse<User>>("/users/me");
-    return extractApiData<User>(response);
+    const response = await fetch("/api/auth/me", {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      credentials: "include", // Include cookies
+    });
+    const result = await response.json();
+    if (!result.success || !result.data) {
+      throw new Error(result.message || "Failed to get user information");
+    }
+    return result.data;
   },
 };
