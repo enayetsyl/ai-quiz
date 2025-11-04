@@ -1,4 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
+import {
+  getAccessTokenCookieOptions,
+  getRefreshTokenCookieOptions,
+  COOKIE_NAMES,
+} from "@/lib/cookies";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4080";
 
@@ -27,23 +32,19 @@ export async function POST(request: NextRequest) {
     if (data.success && data.data?.tokens) {
       const { access, refresh } = data.data.tokens;
       
-      // Set access token cookie
-      nextResponse.cookies.set("access_token", access, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === "production",
-        sameSite: "lax",
-        maxAge: 2 * 24 * 60 * 60, // 2 days in seconds
-        path: "/",
-      });
+      // Set access token cookie with consistent options
+      nextResponse.cookies.set(
+        COOKIE_NAMES.ACCESS_TOKEN,
+        access,
+        getAccessTokenCookieOptions()
+      );
 
-      // Set refresh token cookie
-      nextResponse.cookies.set("refresh_token", refresh, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === "production",
-        sameSite: "lax",
-        maxAge: 30 * 24 * 60 * 60, // 30 days in seconds
-        path: "/",
-      });
+      // Set refresh token cookie with consistent options
+      nextResponse.cookies.set(
+        COOKIE_NAMES.REFRESH_TOKEN,
+        refresh,
+        getRefreshTokenCookieOptions()
+      );
     }
 
     // Return success response without tokens

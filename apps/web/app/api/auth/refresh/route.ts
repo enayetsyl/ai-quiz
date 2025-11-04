@@ -1,30 +1,30 @@
 import { NextRequest, NextResponse } from "next/server";
-import { cookies } from "next/headers";
+import {
+  getAccessTokenCookieOptions,
+  getRefreshTokenCookieOptions,
+  COOKIE_NAMES,
+} from "@/lib/cookies";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4080";
 
 export async function POST(request: NextRequest) {
   try {
-    // Get refresh token from cookies
-    const cookieStore = await cookies();
-    const refreshToken = cookieStore.get("refresh_token")?.value;
+    // Get all cookies from the request to forward to Express
+    const allCookies = request.headers.get("cookie") || "";
 
-    if (!refreshToken) {
+    if (!allCookies) {
       return NextResponse.json(
         { success: false, message: "No refresh token" },
         { status: 401 }
       );
     }
-
-    // Get all cookies from the request to forward to Express
-    const allCookies = request.headers.get("cookie") || "";
     
     // Call Express backend with cookies
     const response = await fetch(`${API_BASE_URL}/api/v1/users/refresh`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Cookie: allCookies || `refresh_token=${refreshToken}`,
+        Cookie: allCookies,
       },
     });
 
@@ -40,23 +40,19 @@ export async function POST(request: NextRequest) {
     if (data.success && data.data?.tokens) {
       const { access, refresh } = data.data.tokens;
       
-      // Set access token cookie
-      nextResponse.cookies.set("access_token", access, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === "production",
-        sameSite: "lax",
-        maxAge: 2 * 24 * 60 * 60, // 2 days in seconds
-        path: "/",
-      });
+      // Set access token cookie with consistent options
+      nextResponse.cookies.set(
+        COOKIE_NAMES.ACCESS_TOKEN,
+        access,
+        getAccessTokenCookieOptions()
+      );
 
-      // Set refresh token cookie
-      nextResponse.cookies.set("refresh_token", refresh, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === "production",
-        sameSite: "lax",
-        maxAge: 30 * 24 * 60 * 60, // 30 days in seconds
-        path: "/",
-      });
+      // Set refresh token cookie with consistent options
+      nextResponse.cookies.set(
+        COOKIE_NAMES.REFRESH_TOKEN,
+        refresh,
+        getRefreshTokenCookieOptions()
+      );
     }
 
     // Return success response without tokens

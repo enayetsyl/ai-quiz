@@ -1,5 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { cookies } from "next/headers";
+import {
+  getAccessTokenCookieOptions,
+  getRefreshTokenCookieOptions,
+  COOKIE_NAMES,
+} from "@/lib/cookies";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4080";
 
@@ -20,9 +24,19 @@ export async function POST(request: NextRequest) {
     const data = await response.json();
 
     // Clear cookies in Next.js regardless of Express response
+    // Use same options when deleting to ensure proper cookie removal
     const nextResponse = NextResponse.json(data);
-    nextResponse.cookies.delete("access_token");
-    nextResponse.cookies.delete("refresh_token");
+    const accessOptions = getAccessTokenCookieOptions();
+    const refreshOptions = getRefreshTokenCookieOptions();
+    
+    nextResponse.cookies.set(COOKIE_NAMES.ACCESS_TOKEN, "", {
+      ...accessOptions,
+      maxAge: 0,
+    });
+    nextResponse.cookies.set(COOKIE_NAMES.REFRESH_TOKEN, "", {
+      ...refreshOptions,
+      maxAge: 0,
+    });
 
     return nextResponse;
   } catch (error) {
@@ -32,8 +46,18 @@ export async function POST(request: NextRequest) {
       { success: true }, // Return success to allow logout even if API fails
       { status: 200 }
     );
-    nextResponse.cookies.delete("access_token");
-    nextResponse.cookies.delete("refresh_token");
+    
+    const accessOptions = getAccessTokenCookieOptions();
+    const refreshOptions = getRefreshTokenCookieOptions();
+    
+    nextResponse.cookies.set(COOKIE_NAMES.ACCESS_TOKEN, "", {
+      ...accessOptions,
+      maxAge: 0,
+    });
+    nextResponse.cookies.set(COOKIE_NAMES.REFRESH_TOKEN, "", {
+      ...refreshOptions,
+      maxAge: 0,
+    });
     
     return nextResponse;
   }
