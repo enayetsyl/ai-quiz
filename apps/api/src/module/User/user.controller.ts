@@ -29,7 +29,11 @@ export async function login(req: Request, res: Response) {
     tokens.refresh,
     jwtLib.cookieOptions.refresh()
   );
-  return sendResponse(res, { success: true });
+  // Return tokens in response body for Next.js API routes to set cookies
+  return sendResponse(res, { 
+    success: true,
+    data: { tokens }
+  });
 }
 
 export async function logout(_req: Request, res: Response) {
@@ -52,7 +56,11 @@ export async function refresh(req: Request, res: Response) {
     refresh,
     jwtLib.cookieOptions.refresh()
   );
-  return sendResponse(res, { success: true });
+  // Return tokens in response body for Next.js API routes to set cookies
+  return sendResponse(res, { 
+    success: true,
+    data: { tokens: { access, refresh } }
+  });
 }
 
 export async function forgotPassword(req: Request, res: Response) {
