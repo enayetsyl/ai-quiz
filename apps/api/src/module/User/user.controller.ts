@@ -19,26 +19,15 @@ export async function login(req: Request, res: Response) {
   if (!user)
     throw new HttpError("Invalid credentials", 401, "invalid_credentials");
   const tokens = service.createTokensForUser(user);
-  res.cookie(
-    jwtLib.cookieNames.access,
-    tokens.access,
-    jwtLib.cookieOptions.access()
-  );
-  res.cookie(
-    jwtLib.cookieNames.refresh,
-    tokens.refresh,
-    jwtLib.cookieOptions.refresh()
-  );
   // Return tokens in response body for Next.js API routes to set cookies
-  return sendResponse(res, { 
+  return sendResponse(res, {
     success: true,
-    data: { tokens }
+    data: { tokens },
   });
 }
 
 export async function logout(_req: Request, res: Response) {
-  res.clearCookie(jwtLib.cookieNames.access);
-  res.clearCookie(jwtLib.cookieNames.refresh);
+  // Cookies are cleared by Next.js API routes
   return sendResponse(res, { success: true });
 }
 
@@ -50,16 +39,10 @@ export async function refresh(req: Request, res: Response) {
     id: payload.userId,
     role: payload.role,
   });
-  res.cookie(jwtLib.cookieNames.access, access, jwtLib.cookieOptions.access());
-  res.cookie(
-    jwtLib.cookieNames.refresh,
-    refresh,
-    jwtLib.cookieOptions.refresh()
-  );
   // Return tokens in response body for Next.js API routes to set cookies
-  return sendResponse(res, { 
+  return sendResponse(res, {
     success: true,
-    data: { tokens: { access, refresh } }
+    data: { tokens: { access, refresh } },
   });
 }
 

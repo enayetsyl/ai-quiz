@@ -38,24 +38,55 @@ export const authApi = {
   },
 
   /**
-   * Login user (sets httpOnly cookies)
+   * Login user (sets httpOnly cookies via Next.js API route)
    */
   login: async (data: LoginData): Promise<void> => {
-    await apiClient.post("/users/login", data);
+    // Use Next.js API route which proxies to Express and sets cookies
+    const response = await fetch("/api/auth/login", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(data),
+    });
+    const result = await response.json();
+    if (!result.success) {
+      throw new Error(result.message || "Login failed");
+    }
   },
 
   /**
-   * Logout user (clears cookies)
+   * Logout user (clears cookies via Next.js API route)
    */
   logout: async (): Promise<void> => {
-    await apiClient.post("/users/logout");
+    // Use Next.js API route which proxies to Express and clears cookies
+    const response = await fetch("/api/auth/logout", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+    });
+    const result = await response.json();
+    if (!result.success) {
+      throw new Error(result.message || "Logout failed");
+    }
   },
 
   /**
-   * Refresh access token using refresh token cookie
+   * Refresh access token using refresh token cookie (via Next.js API route)
    */
   refresh: async (): Promise<void> => {
-    await apiClient.post("/users/refresh");
+    // Use Next.js API route which proxies to Express and sets cookies
+    const response = await fetch("/api/auth/refresh", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+    });
+    const result = await response.json();
+    if (!result.success) {
+      throw new Error(result.message || "Token refresh failed");
+    }
   },
 
   /**
