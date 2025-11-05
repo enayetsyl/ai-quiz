@@ -40,16 +40,37 @@ jobs:
             HEALTH_URL="${{ secrets.HEALTH_URL || 'http://localhost:4080/healthz' }}"
 
             echo "Running Prisma migrations..."
-            docker run --rm \
-              --env-file "$ENV_FILE" \
-              -v ~/quiz-generation/apps/api:/app \
-              -w /app \
-              node:20-alpine sh -c "
-                apk add --no-cache python3 make g++ &&
-                npm ci &&
-                npx prisma migrate deploy &&
-                npx prisma generate
-              "
+            # Prefer running inside the already built/running api container to avoid path issues
+            if command -v docker-compose >/dev/null 2>&1; then
+              DC="docker-compose"
+            else
+              DC="docker compose"
+            fi
+
+            # Ensure we're in the API directory that has docker-compose.prod.yml
+            if [ -d "$HOME/ai-quiz/apps/api" ] && [ -f "$HOME/ai-quiz/apps/api/docker-compose.prod.yml" ]; then
+              cd "$HOME/ai-quiz/apps/api"
+            elif [ -d "$HOME/ai-quiz/apps/api" ] && [ -f "$HOME/ai-quiz/apps/api/docker-compose.prod.yml" ]; then
+              cd "$HOME/ai-quiz/apps/api"
+            else
+              echo "Could not locate apps/api with docker-compose.prod.yml" >&2
+              exit 1
+            fi
+
+            # Try inside container first; fall back to docker run with current directory mounted
+            if ! $DC -f docker-compose.prod.yml exec -T api-server sh -lc "npx prisma migrate deploy && npx prisma generate"; then
+              echo "Falling back to docker run method..."
+              docker run --rm \
+                --env-file "$ENV_FILE" \
+                -v "$(pwd)":/app \
+                -w /app \
+                node:20-alpine sh -c "
+                  apk add --no-cache python3 make g++ &&
+                  npm ci &&
+                  npx prisma migrate deploy &&
+                  npx prisma generate
+                "
+            fi
 
             echo "Health check..."
             max_tries=12
