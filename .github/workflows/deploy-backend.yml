@@ -1,0 +1,66 @@
+name: Deploy Backend to EC2 (Option 1)
+
+on:
+  push:
+    branches: ["main"]
+    # Optional: limit to backend changes
+    # paths:
+    #   - "apps/api/**"
+    #   - ".github/workflows/deploy-backend.yml"
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: SSH Deploy to EC2 (run deploy.sh)
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          port: ${{ secrets.EC2_PORT || 22 }}
+          script_stop: true
+          script: |
+            set -euo pipefail
+            cd ~/quiz-tuition/apps/api
+            chmod +x deploy.sh
+            ./deploy.sh
+
+      - name: SSH Run Prisma migrations and health check
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          port: ${{ secrets.EC2_PORT || 22 }}
+          script_stop: true
+          script: |
+            set -euo pipefail
+            ENV_FILE="${{ secrets.ENV_FILE || '/home/ec2-user/quiz-tuition-deploy/.env' }}"
+            HEALTH_URL="${{ secrets.HEALTH_URL || 'http://localhost:4080/api/v1/health' }}"
+
+            echo "Running Prisma migrations..."
+            docker run --rm \
+              --env-file "$ENV_FILE" \
+              -v ~/quiz-tuition/apps/api:/app \
+              -w /app \
+              node:20-alpine sh -c "
+                apk add --no-cache python3 make g++ &&
+                npm ci &&
+                npx prisma migrate deploy &&
+                npx prisma generate
+              "
+
+            echo "Health check..."
+            max_tries=12
+            sleep_between=5
+            for i in $(seq 1 ${max_tries}); do
+              if curl -fsS "$HEALTH_URL" > /dev/null; then
+                echo "Health check passed."
+                exit 0
+              fi
+              echo "Attempt ${i}/${max_tries} failed; retrying in ${sleep_between}s..."
+              sleep ${sleep_between}
+            done
+            echo "Health check failed after ${max_tries} attempts"
+            exit 1
