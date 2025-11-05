@@ -16,6 +16,10 @@ COPY package.json package-lock.json ./
 # Install all dependencies (including dev) for build
 RUN npm ci
 
+# Copy entrypoint script early for better caching
+COPY docker-entrypoint.sh /usr/local/bin/
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh
+
 COPY . .
 
 RUN npm run build
@@ -25,6 +29,10 @@ RUN npm ci --omit=dev && rm -rf /root/.npm
 
 EXPOSE 4080
 
-CMD ["node", "dist/server.js"]
+# Allow CMD to be overridden via build arg for different services
+ARG CMD_OVERRIDE="node dist/server.js"
+ENV CMD_OVERRIDE=${CMD_OVERRIDE}
+
+ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]
 
 
