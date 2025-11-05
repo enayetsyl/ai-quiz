@@ -47,6 +47,7 @@ export const authApi = {
       headers: {
         "Content-Type": "application/json",
       },
+      credentials: "include", // Ensure cookies are sent with the request
       body: JSON.stringify(data),
     });
     const result = await response.json();
@@ -65,6 +66,7 @@ export const authApi = {
       headers: {
         "Content-Type": "application/json",
       },
+      credentials: "include", // Ensure cookies are sent with the request
     });
     const result = await response.json();
     if (!result.success) {
@@ -82,6 +84,7 @@ export const authApi = {
       headers: {
         "Content-Type": "application/json",
       },
+      credentials: "include", // Ensure cookies are sent with the request
     });
     const result = await response.json();
     if (!result.success) {
@@ -104,10 +107,21 @@ export const authApi = {
   },
 
   /**
-   * Get current user information
+   * Get current user information (via Next.js API route)
    */
   getMe: async (): Promise<User> => {
-    const response = await apiClient.get<ApiResponse<User>>("/users/me");
-    return extractApiData<User>(response);
+    // Use Next.js API route which proxies to Express and forwards cookies
+    const response = await fetch("/api/auth/me", {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      credentials: "include", // Ensure cookies are sent with the request
+    });
+    const result = await response.json();
+    if (!result.success || !result.data) {
+      throw new Error(result.message || "Failed to get user information");
+    }
+    return result.data;
   },
 };

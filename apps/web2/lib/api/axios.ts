@@ -3,12 +3,13 @@ import { toast } from "@/lib/toast";
 
 /**
  * Get API base URL from environment variable or use default
- * Includes /api/v1 prefix for all API routes
+ * Uses Next.js proxy route to ensure cookies are forwarded properly
+ * The proxy route forwards requests to Express backend with cookies
  */
 const getBaseURL = () => {
-  const baseURL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4080";
-  // Ensure /api/v1 is appended to the base URL
-  return `${baseURL.replace(/\/$/, "")}/api/v1`;
+  // Use Next.js proxy route for all API calls
+  // This ensures cookies are properly forwarded for cross-origin requests
+  return "/api/proxy";
 };
 
 /**
@@ -29,8 +30,12 @@ export const apiClient = axios.create({
  */
 apiClient.interceptors.request.use(
   (config: InternalAxiosRequestConfig) => {
-    // Add any additional headers here if needed
+    // Ensure cookies are always sent with requests
+    // withCredentials: true is set in axios.create() config above
+    // This ensures httpOnly cookies (access_token, refresh_token) are automatically included
+
     // Auth tokens are handled via httpOnly cookies, so no manual header needed
+    // Cookies are automatically sent by the browser when withCredentials: true
 
     return config;
   },
