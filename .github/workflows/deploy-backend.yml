@@ -22,7 +22,7 @@ jobs:
           script_stop: true
           script: |
             set -euo pipefail
-            cd ~/quiz-tuition/apps/api
+            cd ~/ai-quiz/apps/api
             chmod +x deploy.sh
             ./deploy.sh
 
@@ -36,13 +36,13 @@ jobs:
           script_stop: true
           script: |
             set -euo pipefail
-            ENV_FILE="${{ secrets.ENV_FILE || '/home/ec2-user/quiz-tuition-deploy/.env' }}"
-            HEALTH_URL="${{ secrets.HEALTH_URL || 'http://localhost:4080/api/v1/health' }}"
+            ENV_FILE="${{ secrets.ENV_FILE || '/home/ec2-user/quiz-generation-deploy/.env' }}"
+            HEALTH_URL="${{ secrets.HEALTH_URL || 'http://localhost:4080/healthz' }}"
 
             echo "Running Prisma migrations..."
             docker run --rm \
               --env-file "$ENV_FILE" \
-              -v ~/quiz-tuition/apps/api:/app \
+              -v ~/quiz-generation/apps/api:/app \
               -w /app \
               node:20-alpine sh -c "
                 apk add --no-cache python3 make g++ &&
