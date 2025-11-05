@@ -57,7 +57,7 @@ app.use(requestLogger);
 app.get("/healthz", (req, res) => {
   return sendResponse(res, {
     success: true,
-    data: { status: "ok" },
+    data: { status: "The status is Ok" },
     message: "ok",
   });
 });
