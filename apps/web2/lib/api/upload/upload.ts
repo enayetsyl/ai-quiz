@@ -92,6 +92,9 @@ export const uploadPdf = async (
       headers: {
         "Content-Type": "multipart/form-data",
       },
+      // Increase timeout specifically for file uploads to avoid client-side cancellation
+      // when the proxy/backend takes longer than 30s to respond.
+      timeout: 180000,
     }
   );
 

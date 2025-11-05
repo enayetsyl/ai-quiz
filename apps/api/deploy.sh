@@ -176,10 +176,19 @@ print_step "Step 6: Checking container status..."
 sleep 3
 $DOCKER_COMPOSE -f "$COMPOSE_FILE" ps
 
-# Show container logs (last 10 lines)
+# Show container logs (last 20 lines for better visibility)
 echo ""
 print_step "Recent logs from containers:"
-$DOCKER_COMPOSE -f "$COMPOSE_FILE" logs --tail=10
+$DOCKER_COMPOSE -f "$COMPOSE_FILE" logs --tail=20
+
+# Show worker-specific logs to verify they're running correctly
+echo ""
+print_step "Checking worker containers status:"
+echo -e "${YELLOW}Rasterize Worker logs:${NC}"
+$DOCKER_COMPOSE -f "$COMPOSE_FILE" logs --tail=5 rasterize-worker 2>/dev/null || echo "No logs yet"
+echo ""
+echo -e "${YELLOW}LLM Worker logs:${NC}"
+$DOCKER_COMPOSE -f "$COMPOSE_FILE" logs --tail=5 llm-worker 2>/dev/null || echo "No logs yet"
 
 echo ""
 echo -e "${GREEN}========================================${NC}"
