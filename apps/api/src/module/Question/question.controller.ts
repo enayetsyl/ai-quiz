@@ -4,6 +4,7 @@ import * as svc from "./question.service";
 import * as v from "./question.validation";
 import { sendResponse, HttpError } from "../../lib/http";
 import { publishQuestionsToBank } from "../QuestionBank/questionbank.service";
+import { questionExportQuerySchema } from "./question.validation";
 
 export async function getQuestions(
   req: Request,
@@ -98,10 +99,109 @@ export async function bulkActionQuestions(
   });
 }
 
+export async function exportQuestions(
+  req: Request,
+  res: Response,
+  _next: NextFunction
+) {
+  const query = questionExportQuerySchema.parse(req.query);
+  const items = await svc.fetchQuestionsForExport({
+    ids: query.ids,
+    filters: {
+      classId: query.classId,
+      subjectId: query.subjectId,
+      chapterId: query.chapterId,
+      pageId: query.pageId,
+      status: query.status,
+      language: query.language,
+      difficulty: query.difficulty,
+    },
+  });
+
+  const filenameBase = `questions_${new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-")}`;
+
+  if (query.format === "csv") {
+    const header = [
+      "stem",
+      "optionA",
+      "optionB",
+      "optionC",
+      "optionD",
+      "correctOption",
+      "explanation",
+      "className",
+      "subjectName",
+      "chapterName",
+    ];
+    const escapeCsv = (val: unknown) => {
+      const s = (val ?? "").toString();
+      if (/[",\n]/.test(s)) {
+        return '"' + s.replace(/"/g, '""') + '"';
+      }
+      return s;
+    };
+    const rows = items.map((q) => [
+      q.stem,
+      q.optionA,
+      q.optionB,
+      q.optionC,
+      q.optionD,
+      q.correctOption,
+      q.explanation,
+      q.class?.displayName || "",
+      q.subject?.name || "",
+      q.chapter?.name || "",
+    ]);
+    const csv = [header, ...rows].map((r) => r.map(escapeCsv).join(",")).join("\n");
+    res.setHeader("Content-Type", "text/csv; charset=utf-8");
+    res.setHeader("Content-Disposition", `attachment; filename=\"${filenameBase}.csv\"`);
+    return res.send("\ufeff" + csv); // BOM for Excel UTF-8
+  }
+
+  // Word-compatible .doc via HTML
+  const htmlHeader =
+    "<!DOCTYPE html><html><head><meta charset=\"utf-8\"><title>Questions</title></head><body>";
+  const htmlFooter = "</body></html>";
+  const block = (label: string, value: string) =>
+    `<p><strong>${label}:</strong> ${value ? value.replace(/\n/g, "<br/>") : ""}</p>`;
+  const section = items
+    .map(
+      (q, idx) =>
+        `<div style=\"margin-bottom:20px;\">` +
+        `<h3 style=\"margin:0 0 8px 0;\">${idx + 1}. ${escapeHtml(q.stem)}</h3>` +
+        block("A", escapeHtml(q.optionA)) +
+        block("B", escapeHtml(q.optionB)) +
+        block("C", escapeHtml(q.optionC)) +
+        block("D", escapeHtml(q.optionD)) +
+        block("Correct", escapeHtml(q.correctOption.toUpperCase())) +
+        block("Explanation", escapeHtml(q.explanation)) +
+        block(
+          "Taxonomy",
+          `${escapeHtml(q.class?.displayName || "")} / ${escapeHtml(q.subject?.name || "")} / ${escapeHtml(q.chapter?.name || "")}`
+        ) +
+        `</div>`
+    )
+    .join("");
+  const html = htmlHeader + section + htmlFooter;
+  res.setHeader("Content-Type", "application/msword; charset=utf-8");
+  res.setHeader("Content-Disposition", `attachment; filename=\"${filenameBase}.doc\"`);
+  return res.send(html);
+}
+
+function escapeHtml(s: string) {
+  return (s || "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/\"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
 export default {
   getQuestions,
   getQuestion,
   updateQuestion,
   deleteQuestion,
   bulkActionQuestions,
+  exportQuestions,
 };

@@ -17,6 +17,12 @@ router.get(
   catchAsync(ctrl.getQuestions)
 );
 
+// Export questions (CSV / Word)
+router.get(
+  "/export",
+  catchAsync(ctrl.exportQuestions)
+);
+
 // Get single question
 router.get("/:id", catchAsync(ctrl.getQuestion));
 

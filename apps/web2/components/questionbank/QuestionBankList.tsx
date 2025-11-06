@@ -23,7 +23,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Eye } from "lucide-react";
+import { Eye, Download } from "lucide-react";
 import Image from "next/image";
 import { PaginationControls } from "@/components/shared/PaginationControls";
 
@@ -36,6 +36,7 @@ export function QuestionBankList() {
   const [selectedChapterId, setSelectedChapterId] = useState<
     string | undefined
   >();
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [viewingImage, setViewingImage] = useState<string | null>(null);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
@@ -60,6 +61,37 @@ export function QuestionBankList() {
   // Reset to page 1 when filters change
   const handleFilterChange = () => {
     setPage(1);
+    setSelectedIds(new Set());
+  };
+
+  const allSelected = items.length > 0 && selectedIds.size === items.length;
+  const toggleSelectAll = (checked: boolean) => {
+    if (checked) setSelectedIds(new Set(items.map((i) => i.id)));
+    else setSelectedIds(new Set());
+  };
+  const toggleSelect = (id: string, checked: boolean) => {
+    const next = new Set(selectedIds);
+    if (checked) next.add(id);
+    else next.delete(id);
+    setSelectedIds(next);
+  };
+
+  const download = async (format: "csv" | "doc") => {
+    const ids = Array.from(selectedIds);
+    const blob = await (await import("@/lib/api/questionbank/questionbank")).questionBankApi.exportQuestionBank({
+      format,
+      ids: ids.length > 0 ? ids : undefined,
+      filters: ids.length === 0 ? { ...filters, classId: selectedClassId, subjectId: selectedSubjectId, chapterId: selectedChapterId } : undefined,
+    });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    const ts = new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-");
+    a.href = url;
+    a.download = `question_bank_${ts}.${format === "csv" ? "csv" : "doc"}`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
   };
 
   if (isLoading) {
@@ -164,12 +196,32 @@ export function QuestionBankList() {
           <CardTitle>Question Bank Items ({totalItems})</CardTitle>
         </CardHeader>
         <CardContent>
+          {selectedIds.size > 0 && (
+            <div className="flex items-center justify-between mb-3">
+              <span className="text-sm font-medium">{selectedIds.size} selected</span>
+              <div className="flex gap-2">
+                <button className="inline-flex items-center text-sm px-3 py-1 border rounded" onClick={() => download("csv")}>
+                  <Download className="h-4 w-4 mr-1" /> CSV
+                </button>
+                <button className="inline-flex items-center text-sm px-3 py-1 border rounded" onClick={() => download("doc")}>
+                  <Download className="h-4 w-4 mr-1" /> Word
+                </button>
+              </div>
+            </div>
+          )}
           {items && items.length > 0 ? (
             <>
               <div className="overflow-x-auto">
                 <Table>
                   <TableHeader>
                     <TableRow>
+                      <TableHead className="w-12">
+                        <input
+                          type="checkbox"
+                          checked={allSelected}
+                          onChange={(e) => toggleSelectAll(e.target.checked)}
+                        />
+                      </TableHead>
                       <TableHead>Code</TableHead>
                       <TableHead>Stem</TableHead>
                       <TableHead>Options</TableHead>
@@ -182,6 +234,13 @@ export function QuestionBankList() {
                   <TableBody>
                     {items.map((item) => (
                       <TableRow key={item.id}>
+                        <TableCell>
+                          <input
+                            type="checkbox"
+                            checked={selectedIds.has(item.id)}
+                            onChange={(e) => toggleSelect(item.id, e.target.checked)}
+                          />
+                        </TableCell>
                         <TableCell className="font-mono">
                           {item.subjShortCode}
                           {item.seqNo
@@ -233,6 +292,46 @@ export function QuestionBankList() {
                               <Eye className="h-4 w-4" />
                             </Button>
                           )}
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={async () => {
+                              const blob = await (await import("@/lib/api/questionbank/questionbank")).questionBankApi.exportQuestionBank({
+                                format: "csv",
+                                ids: [item.id],
+                              });
+                              const url = URL.createObjectURL(blob);
+                              const a = document.createElement("a");
+                              a.href = url;
+                              a.download = `qb_${item.id}.csv`;
+                              document.body.appendChild(a);
+                              a.click();
+                              a.remove();
+                              URL.revokeObjectURL(url);
+                            }}
+                          >
+                            CSV
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={async () => {
+                              const blob = await (await import("@/lib/api/questionbank/questionbank")).questionBankApi.exportQuestionBank({
+                                format: "doc",
+                                ids: [item.id],
+                              });
+                              const url = URL.createObjectURL(blob);
+                              const a = document.createElement("a");
+                              a.href = url;
+                              a.download = `qb_${item.id}.doc`;
+                              document.body.appendChild(a);
+                              a.click();
+                              a.remove();
+                              URL.revokeObjectURL(url);
+                            }}
+                          >
+                            Word
+                          </Button>
                         </TableCell>
                       </TableRow>
                     ))}

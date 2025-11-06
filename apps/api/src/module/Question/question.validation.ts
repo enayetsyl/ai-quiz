@@ -32,10 +32,32 @@ export const questionFilterSchema = z.object({
   pageSize: z.coerce.number().int().min(1).max(100).optional().default(20),
 });
 
+export const questionExportQuerySchema = z.object({
+  // Selection by IDs (comma-separated UUIDs) or by filters
+  ids: z
+    .string()
+    .transform((s) => s.split(",").map((v) => v.trim()).filter(Boolean))
+    .refine((arr) => arr.every((id) => z.string().uuid().safeParse(id).success), {
+      message: "ids must be comma-separated UUIDs",
+    })
+    .optional(),
+  format: z.enum(["csv", "doc"]).default("csv"),
+  classId: z.coerce.number().int().min(1).max(10).optional(),
+  subjectId: z.string().uuid().optional(),
+  chapterId: z.string().uuid().optional(),
+  pageId: z.string().uuid().optional(),
+  status: z
+    .enum(["not_checked", "approved", "rejected", "needs_fix"])
+    .optional(),
+  language: z.enum(["bn", "en"]).optional(),
+  difficulty: z.enum(["easy", "medium", "hard"]).optional(),
+});
+
 const validation = {
   updateQuestionSchema,
   bulkActionSchema,
   questionFilterSchema,
+  questionExportQuerySchema,
 };
 
 export default validation;

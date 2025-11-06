@@ -11,6 +11,9 @@ router.use(requireAuth);
 // Get Question Bank items with filters
 router.get("/", catchAsync(ctrl.getQuestionBank));
 
+// Export Question Bank (CSV / Word)
+router.get("/export", catchAsync(ctrl.exportQuestionBank));
+
 // Get single Question Bank item
 router.get("/:id", catchAsync(ctrl.getQuestionBankItem));
 

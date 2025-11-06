@@ -183,6 +183,46 @@ export async function listQuestionBank(filters: {
   return itemsWithUrls;
 }
 
+export async function fetchQuestionBankForExport(args: {
+  ids?: string[];
+  filters?: {
+    classId?: number;
+    subjectId?: string;
+    chapterId?: string;
+    pageId?: string;
+    language?: "bn" | "en";
+    difficulty?: "easy" | "medium" | "hard";
+  };
+}) {
+  const where: Prisma.QuestionBankWhereInput = {};
+  if (args.ids && args.ids.length > 0) {
+    where.id = { in: args.ids };
+  } else if (args.filters) {
+    const f = args.filters;
+    if (f.classId) where.classId = f.classId;
+    if (f.subjectId) where.subjectId = f.subjectId;
+    if (f.chapterId) where.chapterId = f.chapterId;
+    if (f.pageId) where.pageId = f.pageId;
+    if (f.language) where.language = f.language;
+    if (f.difficulty) where.difficulty = f.difficulty;
+  }
+
+  const items = await prisma.questionBank.findMany({
+    where,
+    include: {
+      class: true,
+      subject: true,
+      chapter: true,
+    },
+    orderBy: [
+      { classId: "asc" },
+      { subjectId: "asc" },
+      { seqNo: "asc" },
+    ],
+  });
+  return items;
+}
+
 export async function getQuestionBankById(itemId: string) {
   const item = await prisma.questionBank.findUnique({
     where: { id: itemId },

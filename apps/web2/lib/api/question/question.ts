@@ -171,4 +171,29 @@ export const questionApi = {
     >("/questions/bulk-action", request);
     return extractApiData(response);
   },
+
+  exportQuestions: async (args: {
+    format: "csv" | "doc";
+    ids?: string[];
+    filters?: QuestionFilters;
+  }): Promise<Blob> => {
+    const params: Record<string, string> = { format: args.format };
+    if (args.ids && args.ids.length > 0) {
+      params.ids = args.ids.join(",");
+    } else if (args.filters) {
+      const f = args.filters;
+      if (f.classId) params.classId = f.classId.toString();
+      if (f.subjectId) params.subjectId = f.subjectId;
+      if (f.chapterId) params.chapterId = f.chapterId;
+      if (f.pageId) params.pageId = f.pageId;
+      if (f.status) params.status = f.status;
+      if (f.language) params.language = f.language;
+      if (f.difficulty) params.difficulty = f.difficulty;
+    }
+    const response = await apiClient.get("/questions/export", {
+      params,
+      responseType: "blob",
+    });
+    return response.data as Blob;
+  },
 };

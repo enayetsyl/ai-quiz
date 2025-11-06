@@ -316,3 +316,51 @@ export async function bulkActionQuestions(
       throw new HttpError(`Unknown action: ${action}`, 400);
   }
 }
+
+export async function fetchQuestionsForExport(args: {
+  ids?: string[];
+  filters?: Partial<
+    Pick<
+      QuestionFilterParams,
+      | "classId"
+      | "subjectId"
+      | "chapterId"
+      | "pageId"
+      | "status"
+      | "language"
+      | "difficulty"
+    >
+  >;
+}) {
+  const where: Prisma.QuestionWhereInput = {};
+  if (args.ids && args.ids.length > 0) {
+    where.id = { in: args.ids };
+  } else if (args.filters) {
+    const f = args.filters;
+    if (f.classId) where.classId = f.classId;
+    if (f.subjectId) where.subjectId = f.subjectId;
+    if (f.chapterId) where.chapterId = f.chapterId;
+    if (f.pageId) where.pageId = f.pageId;
+    if (f.status) where.status = f.status;
+    if (f.language) where.language = f.language;
+    if (f.difficulty) where.difficulty = f.difficulty;
+  }
+
+  const items = await prisma.question.findMany({
+    where,
+    include: {
+      class: true,
+      subject: true,
+      chapter: true,
+    },
+    orderBy: [
+      { classId: "asc" },
+      { subjectId: "asc" },
+      { chapterId: "asc" },
+      { pageId: "asc" },
+      { lineIndex: "asc" },
+    ],
+  });
+
+  return items;
+}
