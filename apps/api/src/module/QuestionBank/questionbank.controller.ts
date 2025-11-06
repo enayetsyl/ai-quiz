@@ -60,7 +60,7 @@ const exportQuerySchema = z.object({
       message: "ids must be comma-separated UUIDs",
     })
     .optional(),
-  format: z.enum(["csv", "doc"]).default("csv"),
+  format: z.enum(["doc"]).default("doc"),
   classId: z.coerce.number().int().min(1).max(10).optional(),
   subjectId: z.string().uuid().optional(),
   chapterId: z.string().uuid().optional(),
@@ -88,44 +88,6 @@ export async function exportQuestionBank(
   });
 
   const filenameBase = `question_bank_${new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-")}`;
-
-  if (query.format === "csv") {
-    const header = [
-      "stem",
-      "optionA",
-      "optionB",
-      "optionC",
-      "optionD",
-      "correctOption",
-      "explanation",
-      "className",
-      "subjectName",
-      "chapterName",
-    ];
-    const escapeCsv = (val: unknown) => {
-      const s = (val ?? "").toString();
-      if (/[",\n]/.test(s)) {
-        return '"' + s.replace(/"/g, '""') + '"';
-      }
-      return s;
-    };
-    const rows = items.map((q) => [
-      q.stem,
-      q.optionA,
-      q.optionB,
-      q.optionC,
-      q.optionD,
-      q.correctOption,
-      q.explanation,
-      q.class?.displayName || "",
-      q.subject?.name || "",
-      q.chapter?.name || "",
-    ]);
-    const csv = [header, ...rows].map((r) => r.map(escapeCsv).join(",")).join("\n");
-    res.setHeader("Content-Type", "text/csv; charset=utf-8");
-    res.setHeader("Content-Disposition", `attachment; filename=\"${filenameBase}.csv\"`);
-    return res.send("\ufeff" + csv);
-  }
 
   const htmlHeader =
     "<!DOCTYPE html><html><head><meta charset=\"utf-8\"><title>Question Bank</title></head><body>";

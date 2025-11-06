@@ -83,12 +83,11 @@ export function QuestionsReview() {
     pageSize,
   });
   const bulkAction = useBulkActionQuestions();
-  const downloadSelected = async (format: "csv" | "doc") => {
+  const downloadSelected = async () => {
     const ids = Array.from(selectedQuestionIds);
     const blob = await (
       await import("@/lib/api/question/question")
     ).questionApi.exportQuestions({
-      format,
       ids: ids.length > 0 ? ids : undefined,
       filters:
         ids.length === 0
@@ -104,7 +103,7 @@ export function QuestionsReview() {
     const a = document.createElement("a");
     const ts = new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-");
     a.href = url;
-    a.download = `questions_${ts}.${format === "csv" ? "csv" : "doc"}`;
+    a.download = `questions_${ts}.doc`;
     document.body.appendChild(a);
     a.click();
     a.remove();
@@ -334,18 +333,7 @@ export function QuestionsReview() {
                 >
                   Publish to Bank
                 </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => downloadSelected("csv")}
-                >
-                  <Download className="h-4 w-4 mr-1" /> CSV
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => downloadSelected("doc")}
-                >
+                <Button size="sm" variant="outline" onClick={downloadSelected}>
                   <Download className="h-4 w-4 mr-1" /> Word
                 </Button>
               </div>
@@ -492,29 +480,6 @@ export function QuestionsReview() {
                                   const blob = await (
                                     await import("@/lib/api/question/question")
                                   ).questionApi.exportQuestions({
-                                    format: "csv",
-                                    ids: [question.id],
-                                  });
-                                  const url = URL.createObjectURL(blob);
-                                  const a = document.createElement("a");
-                                  a.href = url;
-                                  a.download = `question_${question.id}.csv`;
-                                  document.body.appendChild(a);
-                                  a.click();
-                                  a.remove();
-                                  URL.revokeObjectURL(url);
-                                }}
-                              >
-                                CSV
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                onClick={async () => {
-                                  const blob = await (
-                                    await import("@/lib/api/question/question")
-                                  ).questionApi.exportQuestions({
-                                    format: "doc",
                                     ids: [question.id],
                                   });
                                   const url = URL.createObjectURL(blob);

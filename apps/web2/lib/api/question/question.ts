@@ -173,11 +173,11 @@ export const questionApi = {
   },
 
   exportQuestions: async (args: {
-    format: "csv" | "doc";
+    format?: "doc";
     ids?: string[];
     filters?: QuestionFilters;
   }): Promise<Blob> => {
-    const params: Record<string, string> = { format: args.format };
+    const params: Record<string, string> = { format: "doc" };
     if (args.ids && args.ids.length > 0) {
       params.ids = args.ids.join(",");
     } else if (args.filters) {

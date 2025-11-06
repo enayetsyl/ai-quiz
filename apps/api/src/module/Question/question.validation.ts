@@ -41,7 +41,7 @@ export const questionExportQuerySchema = z.object({
       message: "ids must be comma-separated UUIDs",
     })
     .optional(),
-  format: z.enum(["csv", "doc"]).default("csv"),
+  format: z.enum(["doc"]).default("doc"),
   classId: z.coerce.number().int().min(1).max(10).optional(),
   subjectId: z.string().uuid().optional(),
   chapterId: z.string().uuid().optional(),

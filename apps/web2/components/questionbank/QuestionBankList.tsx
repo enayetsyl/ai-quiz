@@ -76,10 +76,9 @@ export function QuestionBankList() {
     setSelectedIds(next);
   };
 
-  const download = async (format: "csv" | "doc") => {
+  const download = async () => {
     const ids = Array.from(selectedIds);
     const blob = await (await import("@/lib/api/questionbank/questionbank")).questionBankApi.exportQuestionBank({
-      format,
       ids: ids.length > 0 ? ids : undefined,
       filters: ids.length === 0 ? { ...filters, classId: selectedClassId, subjectId: selectedSubjectId, chapterId: selectedChapterId } : undefined,
     });
@@ -87,7 +86,7 @@ export function QuestionBankList() {
     const a = document.createElement("a");
     const ts = new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-");
     a.href = url;
-    a.download = `question_bank_${ts}.${format === "csv" ? "csv" : "doc"}`;
+    a.download = `question_bank_${ts}.doc`;
     document.body.appendChild(a);
     a.click();
     a.remove();
@@ -200,10 +199,7 @@ export function QuestionBankList() {
             <div className="flex items-center justify-between mb-3">
               <span className="text-sm font-medium">{selectedIds.size} selected</span>
               <div className="flex gap-2">
-                <button className="inline-flex items-center text-sm px-3 py-1 border rounded" onClick={() => download("csv")}>
-                  <Download className="h-4 w-4 mr-1" /> CSV
-                </button>
-                <button className="inline-flex items-center text-sm px-3 py-1 border rounded" onClick={() => download("doc")}>
+                <button className="inline-flex items-center text-sm px-3 py-1 border rounded" onClick={download}>
                   <Download className="h-4 w-4 mr-1" /> Word
                 </button>
               </div>
@@ -297,27 +293,6 @@ export function QuestionBankList() {
                             variant="ghost"
                             onClick={async () => {
                               const blob = await (await import("@/lib/api/questionbank/questionbank")).questionBankApi.exportQuestionBank({
-                                format: "csv",
-                                ids: [item.id],
-                              });
-                              const url = URL.createObjectURL(blob);
-                              const a = document.createElement("a");
-                              a.href = url;
-                              a.download = `qb_${item.id}.csv`;
-                              document.body.appendChild(a);
-                              a.click();
-                              a.remove();
-                              URL.revokeObjectURL(url);
-                            }}
-                          >
-                            CSV
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={async () => {
-                              const blob = await (await import("@/lib/api/questionbank/questionbank")).questionBankApi.exportQuestionBank({
-                                format: "doc",
                                 ids: [item.id],
                               });
                               const url = URL.createObjectURL(blob);
