@@ -49,7 +49,7 @@ export function QuestionsReview() {
     status: undefined,
   });
   const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(20);
+  const [pageSize, setPageSize] = useState(100);
   const [selectedClassId, setSelectedClassId] = useState<number | undefined>();
   const [selectedSubjectId, setSelectedSubjectId] = useState<
     string | undefined
