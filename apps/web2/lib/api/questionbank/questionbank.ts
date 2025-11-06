@@ -98,8 +98,10 @@ export const questionBankApi = {
     format?: "doc";
     ids?: string[];
     filters?: QuestionBankFilters;
+    variant?: "full" | "stem_options";
   }): Promise<Blob> => {
     const params: Record<string, string> = { format: "doc" };
+    if (args.variant) params.variant = args.variant;
     if (args.ids && args.ids.length > 0) {
       params.ids = args.ids.join(",");
     } else if (args.filters) {

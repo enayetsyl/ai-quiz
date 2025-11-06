@@ -83,7 +83,9 @@ export function QuestionsReview() {
     pageSize,
   });
   const bulkAction = useBulkActionQuestions();
-  const downloadSelected = async () => {
+  const downloadSelected = async (
+    variant: "full" | "stem_options" = "full"
+  ) => {
     const ids = Array.from(selectedQuestionIds);
     const blob = await (
       await import("@/lib/api/question/question")
@@ -98,12 +100,13 @@ export function QuestionsReview() {
               chapterId: selectedChapterId,
             }
           : undefined,
+      variant,
     });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     const ts = new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-");
     a.href = url;
-    a.download = `questions_${ts}.doc`;
+    a.download = `questions_${variant === "full" ? "full" : "qo"}_${ts}.doc`;
     document.body.appendChild(a);
     a.click();
     a.remove();
@@ -333,8 +336,19 @@ export function QuestionsReview() {
                 >
                   Publish to Bank
                 </Button>
-                <Button size="sm" variant="outline" onClick={downloadSelected}>
-                  <Download className="h-4 w-4 mr-1" /> Word
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => downloadSelected("full")}
+                >
+                  <Download className="h-4 w-4 mr-1" /> Word (Full)
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => downloadSelected("stem_options")}
+                >
+                  <Download className="h-4 w-4 mr-1" /> Word (Q + Options)
                 </Button>
               </div>
             </div>
@@ -476,11 +490,14 @@ export function QuestionsReview() {
                               <Button
                                 size="sm"
                                 variant="ghost"
+                                aria-label="Download (Full)"
+                                title="Download (Full)"
                                 onClick={async () => {
                                   const blob = await (
                                     await import("@/lib/api/question/question")
                                   ).questionApi.exportQuestions({
                                     ids: [question.id],
+                                    variant: "full",
                                   });
                                   const url = URL.createObjectURL(blob);
                                   const a = document.createElement("a");
@@ -492,7 +509,31 @@ export function QuestionsReview() {
                                   URL.revokeObjectURL(url);
                                 }}
                               >
-                                Word
+                                <Download className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                aria-label="Download (Q + Options)"
+                                title="Download (Q + Options)"
+                                onClick={async () => {
+                                  const blob = await (
+                                    await import("@/lib/api/question/question")
+                                  ).questionApi.exportQuestions({
+                                    ids: [question.id],
+                                    variant: "stem_options",
+                                  });
+                                  const url = URL.createObjectURL(blob);
+                                  const a = document.createElement("a");
+                                  a.href = url;
+                                  a.download = `question_${question.id}_qo.doc`;
+                                  document.body.appendChild(a);
+                                  a.click();
+                                  a.remove();
+                                  URL.revokeObjectURL(url);
+                                }}
+                              >
+                                <Download className="h-4 w-4" />
                               </Button>
                             </div>
                           </TableCell>

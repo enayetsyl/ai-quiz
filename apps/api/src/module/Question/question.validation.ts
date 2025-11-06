@@ -42,6 +42,7 @@ export const questionExportQuerySchema = z.object({
     })
     .optional(),
   format: z.enum(["doc"]).default("doc"),
+  variant: z.enum(["full", "stem_options"]).default("full"),
   classId: z.coerce.number().int().min(1).max(10).optional(),
   subjectId: z.string().uuid().optional(),
   chapterId: z.string().uuid().optional(),

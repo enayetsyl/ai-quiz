@@ -135,12 +135,15 @@ export async function exportQuestions(
         block("B", escapeHtml(q.optionB)) +
         block("C", escapeHtml(q.optionC)) +
         block("D", escapeHtml(q.optionD)) +
-        block("Correct", escapeHtml(q.correctOption.toUpperCase())) +
-        block("Explanation", escapeHtml(q.explanation)) +
-        block(
-          "Taxonomy",
-          `${escapeHtml(q.class?.displayName || "")} / ${escapeHtml(q.subject?.name || "")} / ${escapeHtml(q.chapter?.name || "")}`
-        ) +
+        (query.variant === "full"
+          ?
+            block("Correct", escapeHtml(q.correctOption.toUpperCase())) +
+            block("Explanation", escapeHtml(q.explanation)) +
+            block(
+              "Taxonomy",
+              `${escapeHtml(q.class?.displayName || "")} / ${escapeHtml(q.subject?.name || "")} / ${escapeHtml(q.chapter?.name || "")}`
+            )
+          : "") +
         `</div>`
     )
     .join("");

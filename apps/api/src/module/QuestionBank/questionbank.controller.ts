@@ -61,6 +61,7 @@ const exportQuerySchema = z.object({
     })
     .optional(),
   format: z.enum(["doc"]).default("doc"),
+  variant: z.enum(["full", "stem_options"]).default("full"),
   classId: z.coerce.number().int().min(1).max(10).optional(),
   subjectId: z.string().uuid().optional(),
   chapterId: z.string().uuid().optional(),
@@ -103,12 +104,15 @@ export async function exportQuestionBank(
         block("B", escapeHtml(q.optionB)) +
         block("C", escapeHtml(q.optionC)) +
         block("D", escapeHtml(q.optionD)) +
-        block("Correct", escapeHtml(q.correctOption.toUpperCase())) +
-        block("Explanation", escapeHtml(q.explanation)) +
-        block(
-          "Taxonomy",
-          `${escapeHtml(q.class?.displayName || "")} / ${escapeHtml(q.subject?.name || "")} / ${escapeHtml(q.chapter?.name || "")}`
-        ) +
+        (query.variant === "full"
+          ?
+            block("Correct", escapeHtml(q.correctOption.toUpperCase())) +
+            block("Explanation", escapeHtml(q.explanation)) +
+            block(
+              "Taxonomy",
+              `${escapeHtml(q.class?.displayName || "")} / ${escapeHtml(q.subject?.name || "")} / ${escapeHtml(q.chapter?.name || "")}`
+            )
+          : "") +
         `</div>`
     )
     .join("");

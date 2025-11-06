@@ -76,17 +76,18 @@ export function QuestionBankList() {
     setSelectedIds(next);
   };
 
-  const download = async () => {
+  const download = async (variant: "full" | "stem_options" = "full") => {
     const ids = Array.from(selectedIds);
     const blob = await (await import("@/lib/api/questionbank/questionbank")).questionBankApi.exportQuestionBank({
       ids: ids.length > 0 ? ids : undefined,
       filters: ids.length === 0 ? { ...filters, classId: selectedClassId, subjectId: selectedSubjectId, chapterId: selectedChapterId } : undefined,
+      variant,
     });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     const ts = new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-");
     a.href = url;
-    a.download = `question_bank_${ts}.doc`;
+    a.download = `question_bank_${variant === "full" ? "full" : "qo"}_${ts}.doc`;
     document.body.appendChild(a);
     a.click();
     a.remove();
@@ -199,8 +200,11 @@ export function QuestionBankList() {
             <div className="flex items-center justify-between mb-3">
               <span className="text-sm font-medium">{selectedIds.size} selected</span>
               <div className="flex gap-2">
-                <button className="inline-flex items-center text-sm px-3 py-1 border rounded" onClick={download}>
-                  <Download className="h-4 w-4 mr-1" /> Word
+                <button className="inline-flex items-center text-sm px-3 py-1 border rounded" onClick={() => download("full")}>
+                  <Download className="h-4 w-4 mr-1" /> Word (Full)
+                </button>
+                <button className="inline-flex items-center text-sm px-3 py-1 border rounded" onClick={() => download("stem_options")}>
+                  <Download className="h-4 w-4 mr-1" /> Word (Q + Options)
                 </button>
               </div>
             </div>
@@ -291,9 +295,12 @@ export function QuestionBankList() {
                           <Button
                             size="sm"
                             variant="ghost"
+                            aria-label="Download (Full)"
+                            title="Download (Full)"
                             onClick={async () => {
                               const blob = await (await import("@/lib/api/questionbank/questionbank")).questionBankApi.exportQuestionBank({
                                 ids: [item.id],
+                                variant: "full",
                               });
                               const url = URL.createObjectURL(blob);
                               const a = document.createElement("a");
@@ -305,7 +312,29 @@ export function QuestionBankList() {
                               URL.revokeObjectURL(url);
                             }}
                           >
-                            Word
+                            <Download className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            aria-label="Download (Q + Options)"
+                            title="Download (Q + Options)"
+                            onClick={async () => {
+                              const blob = await (await import("@/lib/api/questionbank/questionbank")).questionBankApi.exportQuestionBank({
+                                ids: [item.id],
+                                variant: "stem_options",
+                              });
+                              const url = URL.createObjectURL(blob);
+                              const a = document.createElement("a");
+                              a.href = url;
+                              a.download = `qb_${item.id}_qo.doc`;
+                              document.body.appendChild(a);
+                              a.click();
+                              a.remove();
+                              URL.revokeObjectURL(url);
+                            }}
+                          >
+                            <Download className="h-4 w-4" />
                           </Button>
                         </TableCell>
                       </TableRow>
