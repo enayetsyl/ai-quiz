@@ -29,7 +29,7 @@ import type {
 } from "@/lib/api/taxonomy/taxonomy";
 
 const createClassSchema = z.object({
-  id: z.number().int().min(6).max(10),
+  id: z.number().int().min(1).max(10),
   displayName: z.string().min(1, "Display name is required"),
 });
 
@@ -54,7 +54,7 @@ export function ClassFormDialog({
 }: ClassFormDialogProps) {
   const createForm = useForm<z.infer<typeof createClassSchema>>({
     resolver: zodResolver(createClassSchema),
-    defaultValues: { id: 6, displayName: "" },
+    defaultValues: { id: 1, displayName: "" },
   });
 
   const updateForm = useForm<z.infer<typeof updateClassSchema>>({
@@ -68,7 +68,7 @@ export function ClassFormDialog({
   useEffect(() => {
     if (!open) {
       if (mode === "create") {
-        createForm.reset({ id: 6, displayName: "" });
+        createForm.reset({ id: 1, displayName: "" });
       } else {
         updateForm.reset(
           initialData
@@ -103,7 +103,7 @@ export function ClassFormDialog({
           </DialogTitle>
           <DialogDescription>
             {mode === "create"
-              ? "Add a new class level (grades 6-10)"
+              ? "Add a new class level (grades 1-10)"
               : "Update the class level information"}
           </DialogDescription>
         </DialogHeader>
@@ -122,7 +122,7 @@ export function ClassFormDialog({
                     <FormControl>
                       <Input
                         type="number"
-                        min={6}
+                        min={1}
                         max={10}
                         {...field}
                         onChange={(e) =>
@@ -132,7 +132,7 @@ export function ClassFormDialog({
                     </FormControl>
                     <FormMessage />
                     <p className="text-xs text-muted-foreground">
-                      Must be between 6 and 10
+                      Must be between 1 and 10
                     </p>
                   </FormItem>
                 )}

@@ -37,7 +37,7 @@ import type {
 } from "@/lib/api/taxonomy/taxonomy";
 
 const createSubjectSchema = z.object({
-  classId: z.number().int().min(6).max(10),
+  classId: z.number().int().min(1).max(10),
   name: z.string().min(1, "Subject name is required"),
   code: z
     .string()
@@ -80,14 +80,14 @@ export function SubjectFormDialog({
     resolver: zodResolver(schema),
     defaultValues: initialData
       ? { name: initialData.name, code: initialData.code || "" }
-      : { classId: 6, name: "", code: "" },
+      : { classId: 1, name: "", code: "" },
   });
 
   // Reset form when dialog closes
   useEffect(() => {
     if (!open) {
       if (mode === "create") {
-        form.reset({ classId: 6, name: "", code: "" });
+        form.reset({ classId: 1, name: "", code: "" });
       } else {
         form.reset(
           initialData

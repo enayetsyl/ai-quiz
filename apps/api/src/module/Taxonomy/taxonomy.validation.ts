@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 export const createSubjectSchema = z.object({
-  classId: z.number().int().min(6).max(10),
+  classId: z.number().int().min(1).max(10),
   name: z.string().min(1),
   code: z
     .string()
@@ -20,7 +20,7 @@ export const createChapterSchema = z.object({
 export const updateChapterSchema = createChapterSchema.partial();
 
 export const createClassSchema = z.object({
-  id: z.number().int().min(6).max(10),
+  id: z.number().int().min(1).max(10),
   displayName: z.string().min(1),
 });
 

@@ -12,8 +12,13 @@ async function main() {
     create: { id: 1 },
   });
 
-  console.log("Seeding class levels 6-10 if missing...");
+  console.log("Seeding class levels 1-10 if missing...");
   const classLevels = [
+    { id: 1, displayName: "Class 1" },
+    { id: 2, displayName: "Class 2" },
+    { id: 3, displayName: "Class 3" },
+    { id: 4, displayName: "Class 4" },
+    { id: 5, displayName: "Class 5" },
     { id: 6, displayName: "Class 6" },
     { id: 7, displayName: "Class 7" },
     { id: 8, displayName: "Class 8" },
@@ -28,50 +33,60 @@ async function main() {
     });
   }
 
-  console.log("Seeding subjects and chapters for Class 6...");
-  const class6Id = 6;
+  console.log("Seeding subjects and chapters for all classes (1-10)...");
   const subjects = [
-    { name: "Bangla", code: "BA" },
+    { name: "Bangla", code: "BN" },
     { name: "English", code: "EN" },
     { name: "Math", code: "MA" },
+    { name: "Science", code: "SC" },
+    { name: "BGS", code: "BG" },
+    { name: "Deen", code: "DE" },
+    { name: "Bangla Second", code: "BS" },
+    { name: "English Second", code: "ES" },
+    { name: "ICT", code: "IT" },
   ];
 
-  for (const subj of subjects) {
-    // Create or update subject
-    const subject = await prisma.subject.upsert({
-      where: {
-        classId_name: {
-          classId: class6Id,
-          name: subj.name,
-        },
-      },
-      update: { code: subj.code },
-      create: {
-        name: subj.name,
-        code: subj.code,
-        classId: class6Id,
-      },
-    });
+  // Loop through all classes 1-10
+  for (let classId = 1; classId <= 10; classId++) {
+    console.log(`\nSeeding Class ${classId}...`);
 
-    console.log(`  ✓ Subject: ${subj.name} (${subj.code})`);
-
-    // Create chapters for this subject (Chapter 1, 2, 3)
-    for (let ordinal = 1; ordinal <= 3; ordinal++) {
-      await prisma.chapter.upsert({
+    for (const subj of subjects) {
+      // Create or update subject
+      const subject = await prisma.subject.upsert({
         where: {
-          subjectId_ordinal: {
-            subjectId: subject.id,
-            ordinal: ordinal,
+          classId_name: {
+            classId: classId,
+            name: subj.name,
           },
         },
-        update: { name: `Chapter ${ordinal}` },
+        update: { code: subj.code },
         create: {
-          name: `Chapter ${ordinal}`,
-          ordinal: ordinal,
-          subjectId: subject.id,
+          name: subj.name,
+          code: subj.code,
+          classId: classId,
         },
       });
-      console.log(`    ✓ Chapter ${ordinal}`);
+
+      console.log(`  ✓ Subject: ${subj.name} (${subj.code})`);
+
+      // Create chapters for this subject (Chapter 1 to Chapter 30)
+      for (let ordinal = 1; ordinal <= 30; ordinal++) {
+        await prisma.chapter.upsert({
+          where: {
+            subjectId_ordinal: {
+              subjectId: subject.id,
+              ordinal: ordinal,
+            },
+          },
+          update: { name: `Chapter ${ordinal}` },
+          create: {
+            name: `Chapter ${ordinal}`,
+            ordinal: ordinal,
+            subjectId: subject.id,
+          },
+        });
+      }
+      console.log(`    ✓ Created 30 chapters`);
     }
   }
 

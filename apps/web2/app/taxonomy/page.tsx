@@ -36,7 +36,7 @@ export default function TaxonomyPage() {
               <CardHeader>
                 <CardTitle>Class Levels</CardTitle>
                 <CardDescription>
-                  Manage class levels (grades 6-10)
+                  Manage class levels (grades 1-10)
                 </CardDescription>
               </CardHeader>
               <CardContent>

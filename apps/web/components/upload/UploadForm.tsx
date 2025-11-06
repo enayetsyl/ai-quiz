@@ -35,7 +35,7 @@ import { Upload, FileText, Loader2Icon } from "lucide-react";
 import { toast } from "@/lib/toast";
 
 const uploadSchema = z.object({
-  classId: z.number().int().min(6).max(10),
+  classId: z.number().int().min(1).max(10),
   subjectId: z
     .string()
     .min(1, "Please select a valid subject")

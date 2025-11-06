@@ -5,7 +5,7 @@ import { z } from "zod";
 import { sendResponse } from "../../lib/http";
 
 const questionBankFilterSchema = z.object({
-  classId: z.coerce.number().int().min(6).max(10).optional(),
+  classId: z.coerce.number().int().min(1).max(10).optional(),
   subjectId: z.string().uuid().optional(),
   chapterId: z.string().uuid().optional(),
   pageId: z.string().uuid().optional(),
