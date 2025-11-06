@@ -113,7 +113,9 @@ export function QuestionsReview() {
     URL.revokeObjectURL(url);
   };
 
-  const questions = questionsResponse?.data || [];
+  const questions = (questionsResponse?.data || []).filter(
+    (q) => q.status !== "approved"
+  );
   const pagination = questionsResponse?.pagination;
 
   // Reset to page 1 when filters change
@@ -358,7 +360,7 @@ export function QuestionsReview() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Questions ({pagination?.total || 0})</CardTitle>
+          <CardTitle>Questions ({questions.length})</CardTitle>
         </CardHeader>
         <CardContent>
           {questions && questions.length > 0 ? (
