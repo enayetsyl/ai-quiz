@@ -79,9 +79,24 @@ export function useBulkActionQuestions() {
       const action = variables.action;
       const count = data.updated || data.deleted || data.published || 0;
 
-      if (action === "publish") {
-        toast.success(`${count} question(s) published to Question Bank`);
+      // Invalidate question bank if questions were published (approve or publish action)
+      if (action === "approve" && data.published !== undefined && data.published > 0) {
         queryClient.invalidateQueries({ queryKey: ["question-bank"] });
+      } else if (action === "publish") {
+        queryClient.invalidateQueries({ queryKey: ["question-bank"] });
+      }
+
+      // Construct success messages based on action and result
+      if (action === "approve") {
+        if (data.published !== undefined && data.published > 0) {
+          toast.success(`${data.published} question(s) approved and published to Question Bank`);
+        } else {
+          toast.success(`${data.updated || 0} question(s) approved`);
+        }
+      } else if (action === "reject") {
+        toast.success(`${data.deleted || 0} question(s) rejected and deleted`);
+      } else if (action === "publish") {
+        toast.success(`${data.published || 0} question(s) published to Question Bank`);
       } else {
         toast.success(`Bulk ${action} completed for ${count} question(s)`);
       }

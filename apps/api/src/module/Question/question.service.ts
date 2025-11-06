@@ -3,6 +3,7 @@ import { HttpError } from "../../lib/http";
 import { QuestionFilterParams, BulkActionRequest } from "./question.types";
 import { getPresignedUrlForKey } from "../../lib/s3";
 import { Prisma } from "@prisma/client";
+import { publishQuestionsToBank } from "../QuestionBank/questionbank.service";
 
 export async function listQuestions(filters: QuestionFilterParams) {
   const where: Prisma.QuestionWhereInput = {};
@@ -164,7 +165,9 @@ export async function updateQuestion(
     );
   }
 
-  const updateData: Prisma.QuestionUpdateInput & { reviewedBy?: string } = { ...data };
+  const updateData: Prisma.QuestionUpdateInput & { reviewedBy?: string } = {
+    ...data,
+  };
   if (data.status && reviewedBy) {
     updateData.reviewedBy = reviewedBy;
   }
@@ -224,19 +227,66 @@ export async function bulkActionQuestions(
 
   switch (action) {
     case "approve":
+      // Map action to status enum value
+      const approveStatusMap: Record<string, "approved"> = {
+        approve: "approved",
+      };
+      // Update status for all questions to approved
+      await prisma.question.updateMany({
+        where: { id: { in: questionIds } },
+        data: {
+          status: approveStatusMap[action],
+          reviewedBy: userId || null,
+        },
+      });
+
+      // Automatically publish approved questions
+      try {
+        const publishResult = await publishQuestionsToBank(questionIds, userId);
+        return {
+          updated: questions.length,
+          published: publishResult.published,
+        };
+      } catch (publishError) {
+        // If publishing fails, still return success for approval
+        // The questions are approved but not yet published
+        return {
+          updated: questions.length,
+          published: 0,
+          publishError:
+            publishError instanceof Error
+              ? publishError.message
+              : "Failed to publish",
+        };
+      }
+
     case "reject":
+      // Check if any are locked
+      const lockedQuestions = questions.filter(
+        (q: (typeof questions)[0]) => q.isLockedAfterAdd
+      );
+      if (lockedQuestions.length > 0) {
+        throw new HttpError(
+          `Cannot delete ${lockedQuestions.length} locked question(s)`,
+          403
+        );
+      }
+      // Delete rejected questions instead of updating status
+      await prisma.question.deleteMany({
+        where: { id: { in: questionIds } },
+      });
+      return { deleted: questions.length };
+
     case "needs_fix":
       // Map action to status enum value
-      const statusMap: Record<string, "approved" | "rejected" | "needs_fix"> = {
-        approve: "approved",
-        reject: "rejected",
+      const needsFixStatusMap: Record<string, "needs_fix"> = {
         needs_fix: "needs_fix",
       };
       // Update status for all questions
       await prisma.question.updateMany({
         where: { id: { in: questionIds } },
         data: {
-          status: statusMap[action],
+          status: needsFixStatusMap[action],
           reviewedBy: userId || null,
         },
       });
@@ -244,10 +294,12 @@ export async function bulkActionQuestions(
 
     case "delete":
       // Check if any are locked
-      const lockedQuestions = questions.filter((q: (typeof questions)[0]) => q.isLockedAfterAdd);
-      if (lockedQuestions.length > 0) {
+      const lockedQuestionsForDelete = questions.filter(
+        (q: (typeof questions)[0]) => q.isLockedAfterAdd
+      );
+      if (lockedQuestionsForDelete.length > 0) {
         throw new HttpError(
-          `Cannot delete ${lockedQuestions.length} locked question(s)`,
+          `Cannot delete ${lockedQuestionsForDelete.length} locked question(s)`,
           403
         );
       }

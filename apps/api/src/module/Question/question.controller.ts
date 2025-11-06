@@ -71,10 +71,30 @@ export async function bulkActionQuestions(
   }
 
   const result = await svc.bulkActionQuestions(parsed, userId);
+  
+  // Generate appropriate message based on action
+  let message = `Bulk action completed: ${parsed.action}`;
+  if (parsed.action === "approve") {
+    if (result.published !== undefined && result.published > 0) {
+      message = `${result.updated || result.published} question(s) approved and published to Question Bank`;
+      if (result.publishError) {
+        message += ` (Note: ${result.publishError})`;
+      }
+    } else {
+      message = `${result.updated || 0} question(s) approved`;
+    }
+  } else if (parsed.action === "reject") {
+    message = `${result.deleted || 0} question(s) rejected and deleted`;
+  } else if (parsed.action === "delete") {
+    message = `${result.deleted || 0} question(s) deleted`;
+  } else if (parsed.action === "needs_fix") {
+    message = `${result.updated || 0} question(s) marked as needs fix`;
+  }
+  
   return sendResponse(res, {
     success: true,
     data: result,
-    message: `Bulk action completed: ${parsed.action}`,
+    message,
   });
 }
 
