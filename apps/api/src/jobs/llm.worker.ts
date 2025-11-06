@@ -20,9 +20,9 @@ Language must match the page (Bangla page → Bangla questions; English page →
 
 CRITICAL: Mathematical Content Processing Rules:
 - This page contains MATHEMATICAL CONTENT. Mathematical problems often span multiple lines.
-- Identify COMPLETE math problems, exercises, or concepts. A problem may span 1-10 lines or more.
-- DO NOT generate questions line-by-line. Treat each complete problem as one unit.
-- Generate approximately 2-5 MCQs per page based on complete problems/concepts found.
+- While problems may span multiple lines, you MUST still generate ONE question per line.
+- For each line, create a question that tests understanding of the content on that specific line.
+- If a line is part of a multi-line problem, the question should focus on that line's content while maintaining context.
 - Preserve ALL mathematical notation, formulas, equations, and symbols EXACTLY as shown.
 - For Bengali math pages: preserve Bengali mathematical terminology exactly (e.g., যোগ, বিয়োগ, গুণ, ভাগ, সমীকরণ, etc.).
 - Mathematical expressions must be preserved character-for-character, including all operators, numbers, and variables.
@@ -36,8 +36,11 @@ CRITICAL: Bengali/Bangla Character Recognition & Preservation Rules (for Bengali
 - If you are uncertain about a Bengali character after careful examination, preserve it exactly as you see it in the image - do not guess, modify, or substitute.
 
 Task:
-- Scan the entire page and identify distinct math problems/exercises/concepts.
-- For each identified problem/concept, generate 1-2 relevant MCQs.
+- Scan the ENTIRE page line by line. Count ALL visible lines of content (excluding headers/footers/captions/page numbers/watermarks).
+- For EACH line of content, generate EXACTLY ONE MCQ question.
+- If a math problem spans multiple lines, generate one question per line that covers the content of that line.
+- DO NOT skip lines. DO NOT combine multiple lines into one question.
+- You MUST generate a question for every substantial line of content on the page.
 - Questions should test problem-solving, conceptual understanding, or application.
 - Each MCQ must have exactly 4 options.
 - Exactly one correct option per question.
@@ -85,7 +88,10 @@ CRITICAL: Bengali/Bangla Character Recognition & Preservation Rules:
 - If you are uncertain about a Bengali character after careful examination, preserve it exactly as you see it in the image - do not guess, modify, or substitute with similar-looking characters.
 
 Task:
-- Generate approximately one MCQ per eligible line.
+- Scan the ENTIRE page line by line. Count ALL visible lines of content (excluding headers/footers/captions/page numbers/watermarks).
+- For EACH line of content, generate EXACTLY ONE MCQ question.
+- DO NOT skip lines. DO NOT combine multiple lines into one question.
+- You MUST generate a question for every substantial line of content on the page.
 - Each MCQ must have exactly 4 options.
 - Exactly one correct option per question.
 - Include a short explanation.
