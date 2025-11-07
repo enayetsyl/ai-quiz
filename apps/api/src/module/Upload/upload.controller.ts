@@ -1,9 +1,11 @@
 import { Request, Response } from "express";
 import multer from "multer";
+import crypto from "crypto";
 import { uploadMetadataSchema } from "./upload.validation";
 import { handleUpload } from "./upload.service";
 import { sendResponse } from "../../lib/http";
-import { getPresignedUrlForKey } from "../../lib/s3";
+import { getPresignedUrlForKey, getPresignedPutUrlForKey, fileExists } from "../../lib/s3";
+import { prisma } from "../../lib";
 
 const upload = multer({ 
   storage: multer.memoryStorage(),
@@ -265,4 +267,133 @@ export const getUploadAttempts = async (req: Request, res: Response) => {
     orderBy: { createdAt: "desc" },
   });
   return sendResponse(res, { success: true, data: { uploadId, attempts } });
+};
+
+/**
+ * Initiate a direct upload to R2
+ * Returns a presigned URL for the client to upload directly
+ */
+export const initiateUpload = async (req: Request, res: Response) => {
+  const parse = uploadMetadataSchema.safeParse({
+    classId: Number(req.body.classId),
+    subjectId: req.body.subjectId,
+    chapterId: req.body.chapterId,
+  });
+  
+  if (!parse.success) {
+    return sendResponse(res, {
+      success: false,
+      status: 400,
+      message: "Invalid metadata",
+      error: { message: "validation failed", code: "validation_error" },
+      meta: { validation: parse.error.errors },
+    });
+  }
+
+  // Generate a temporary upload ID
+  const tempUploadId = crypto.randomUUID();
+  const pdfKey = `uploads/${tempUploadId}/original.pdf`;
+  
+  // Get presigned PUT URL
+  const presignedUrl = await getPresignedPutUrlForKey(
+    pdfKey,
+    "application/pdf",
+    3600 // 1 hour expiry
+  );
+
+  return sendResponse(res, {
+    success: true,
+    data: {
+      uploadId: tempUploadId,
+      presignedUrl,
+      pdfKey,
+      metadata: parse.data,
+    },
+  });
+};
+
+/**
+ * Complete the upload after direct R2 upload
+ * Creates the upload record and processes it (file is already in R2)
+ */
+export const completeUpload = async (req: Request, res: Response) => {
+  const { uploadId, pdfKey, metadata, originalname } = req.body;
+  
+  if (!uploadId || !pdfKey) {
+    return sendResponse(res, {
+      success: false,
+      status: 400,
+      message: "Missing uploadId or pdfKey",
+    });
+  }
+
+  try {
+    // Verify the file exists in R2 (lightweight check without downloading)
+    const exists = await fileExists(pdfKey);
+    if (!exists) {
+      return sendResponse(res, {
+        success: false,
+        status: 404,
+        message: "File not found in R2. Upload may have failed.",
+      });
+    }
+
+    // Validate metadata
+    const parse = uploadMetadataSchema.safeParse(metadata || {
+      classId: Number(req.body.classId),
+      subjectId: req.body.subjectId,
+      chapterId: req.body.chapterId,
+    });
+
+    if (!parse.success) {
+      return sendResponse(res, {
+        success: false,
+        status: 400,
+        message: "Invalid metadata",
+        error: { message: "validation failed", code: "validation_error" },
+        meta: { validation: parse.error.errors },
+      });
+    }
+
+    // Create upload record directly with the pdfKey (file is already in R2)
+    const upload = await prisma.upload.create({
+      data: {
+        classId: parse.data.classId,
+        subjectId: parse.data.subjectId,
+        chapterId: parse.data.chapterId,
+        uploadedBy: (req as any).user?.id ?? null,
+        originalFilename: originalname || "uploaded.pdf",
+        mimeType: "application/pdf",
+        s3Bucket: process.env.R2_BUCKET as string,
+        s3PdfKey: pdfKey, // Use the pdfKey from the direct upload
+        pagesCount: 0,
+        fileMeta: {},
+      },
+    });
+
+    // Enqueue job to analyze and rasterize all pages
+    const { rasterizeQueue } = await import("../../lib/queue");
+    await rasterizeQueue.add(
+      "analyze_and_rasterize",
+      { uploadId: upload.id, s3PdfKey: pdfKey },
+      { removeOnComplete: true, removeOnFail: false }
+    );
+
+    const { logger } = await import("../../lib/logger");
+    logger.info({ uploadId: upload.id }, "Enqueued analyze_and_rasterize job");
+
+    return sendResponse(res, {
+      success: true,
+      data: { uploadId: upload.id },
+      message: "Upload completed",
+    });
+  } catch (error) {
+    console.error("Error completing upload:", error);
+    return sendResponse(res, {
+      success: false,
+      status: 500,
+      message: "Failed to complete upload",
+      error: { message: error instanceof Error ? error.message : String(error) },
+    });
+  }
 };

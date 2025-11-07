@@ -312,6 +312,21 @@ export function UploadForm() {
               )}
             />
 
+            {/* Upload Progress Bar */}
+            {uploadMutation.uploadProgress > 0 && uploadMutation.uploadProgress < 100 && (
+              <div className="space-y-2">
+                <div className="w-full bg-gray-200 rounded-full h-2">
+                  <div
+                    className="bg-primary h-2 rounded-full transition-all duration-300"
+                    style={{ width: `${uploadMutation.uploadProgress}%` }}
+                  />
+                </div>
+                <div className="text-xs text-muted-foreground text-center">
+                  Uploading... {Math.round(uploadMutation.uploadProgress)}%
+                </div>
+              </div>
+            )}
+
             <Button
               type="submit"
               disabled={uploadMutation.isPending || isLoadingClasses}
@@ -320,7 +335,9 @@ export function UploadForm() {
               {uploadMutation.isPending ? (
                 <>
                   <Loader2Icon className="mr-2 h-4 w-4 animate-spin" />
-                  Uploading...
+                  {uploadMutation.uploadProgress > 0
+                    ? `Uploading... ${Math.round(uploadMutation.uploadProgress)}%`
+                    : "Uploading..."}
                 </>
               ) : (
                 <>

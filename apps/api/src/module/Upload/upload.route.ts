@@ -8,6 +8,8 @@ import uploadController, {
   regeneratePage,
   getPageAttempts,
   getUploadAttempts,
+  initiateUpload,
+  completeUpload,
 } from "./upload.controller";
 
 const router = Router();
@@ -33,6 +35,8 @@ router.get(
   catchAsync(getPageAttempts as any)
 );
 router.get("/:id/attempts", requireAuth, catchAsync(getUploadAttempts as any));
+router.post("/initiate", requireAuth, catchAsync(initiateUpload as any));
+router.post("/complete", requireAuth, catchAsync(completeUpload as any));
 
 export const UploadRoutes = router;
 

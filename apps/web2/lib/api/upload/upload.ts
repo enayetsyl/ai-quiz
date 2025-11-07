@@ -73,32 +73,131 @@ export const listUploads = async (): Promise<UploadListItem[]> => {
 };
 
 /**
- * Upload a PDF file with metadata
+ * Initiate a direct upload to R2
+ */
+export const initiateDirectUpload = async (
+  metadata: UploadMetadata,
+  filename: string
+): Promise<{
+  uploadId: string;
+  presignedUrl: string;
+  pdfKey: string;
+  metadata: UploadMetadata;
+}> => {
+  const response = await apiClient.post<
+    ApiResponse<{
+      uploadId: string;
+      presignedUrl: string;
+      pdfKey: string;
+      metadata: UploadMetadata;
+    }>
+  >("/uploads/initiate", {
+    ...metadata,
+    originalname: filename,
+  });
+  return extractApiData(response);
+};
+
+/**
+ * Upload file directly to R2 using presigned URL
+ */
+export const uploadFileToR2 = async (
+  file: File,
+  presignedUrl: string
+): Promise<void> => {
+  const response = await fetch(presignedUrl, {
+    method: "PUT",
+    body: file,
+    headers: {
+      "Content-Type": file.type,
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to upload file: ${response.statusText}`);
+  }
+};
+
+/**
+ * Upload file to R2 with progress tracking
+ */
+export const uploadFileToR2WithProgress = async (
+  file: File,
+  presignedUrl: string,
+  onProgress: (progress: number) => void
+): Promise<void> => {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    
+    xhr.upload.addEventListener("progress", (e) => {
+      if (e.lengthComputable) {
+        const progress = (e.loaded / e.total) * 100;
+        onProgress(progress);
+      }
+    });
+
+    xhr.addEventListener("load", () => {
+      if (xhr.status === 200 || xhr.status === 201) {
+        resolve();
+      } else {
+        reject(new Error(`Upload failed: ${xhr.statusText} (${xhr.status})`));
+      }
+    });
+
+    xhr.addEventListener("error", () => {
+      reject(new Error("Upload failed: Network error"));
+    });
+
+    xhr.addEventListener("abort", () => {
+      reject(new Error("Upload cancelled"));
+    });
+
+    xhr.open("PUT", presignedUrl);
+    xhr.setRequestHeader("Content-Type", file.type);
+    xhr.send(file);
+  });
+};
+
+/**
+ * Complete the upload after direct R2 upload
+ */
+export const completeDirectUpload = async (
+  uploadId: string,
+  pdfKey: string,
+  metadata: UploadMetadata,
+  originalname: string
+): Promise<UploadResponse> => {
+  const response = await apiClient.post<ApiResponse<UploadResponse>>(
+    "/uploads/complete",
+    {
+      uploadId,
+      pdfKey,
+      metadata,
+      originalname,
+    }
+  );
+  return extractApiData(response);
+};
+
+/**
+ * Upload a PDF file with metadata using direct R2 upload
+ * This bypasses the Next.js proxy and uploads directly to R2
  */
 export const uploadPdf = async (
   file: File,
   metadata: UploadMetadata
 ): Promise<UploadResponse> => {
-  const formData = new FormData();
-  formData.append("file", file);
-  formData.append("classId", metadata.classId.toString());
-  formData.append("subjectId", metadata.subjectId);
-  formData.append("chapterId", metadata.chapterId);
-
-  const response = await apiClient.post<ApiResponse<UploadResponse>>(
-    "/uploads",
-    formData,
-    {
-      headers: {
-        "Content-Type": "multipart/form-data",
-      },
-      // Increase timeout specifically for file uploads to avoid client-side cancellation
-      // when the proxy/backend takes longer than 30s to respond.
-      timeout: 180000,
-    }
+  // Step 1: Get presigned URL
+  const { uploadId, presignedUrl, pdfKey } = await initiateDirectUpload(
+    metadata,
+    file.name
   );
 
-  return extractApiData(response);
+  // Step 2: Upload directly to R2
+  await uploadFileToR2(file, presignedUrl);
+
+  // Step 3: Complete the upload
+  return await completeDirectUpload(uploadId, pdfKey, metadata, file.name);
 };
 
 /**

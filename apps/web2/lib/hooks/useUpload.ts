@@ -1,8 +1,12 @@
+import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "@/lib/toast";
 import {
   listUploads,
   uploadPdf,
+  initiateDirectUpload,
+  uploadFileToR2WithProgress,
+  completeDirectUpload,
   getUploadStatus,
   requeueUpload,
   regeneratePage,
@@ -27,22 +31,55 @@ export const useUploads = () => {
 };
 
 /**
- * Hook for uploading a PDF file
+ * Hook for uploading a PDF file with progress tracking
  */
 export const useUploadPdf = () => {
   const queryClient = useQueryClient();
+  const [uploadProgress, setUploadProgress] = useState(0);
 
-  return useMutation<
+  const mutation = useMutation<
     { uploadId: string },
-    AxiosError,
+    Error,
     { file: File; metadata: UploadMetadata }
   >({
-    mutationFn: ({ file, metadata }) => uploadPdf(file, metadata),
+    mutationFn: async ({ file, metadata }) => {
+      try {
+        // Step 1: Initiate upload (10% progress)
+        setUploadProgress(10);
+        const { uploadId, presignedUrl, pdfKey } = await initiateDirectUpload(
+          metadata,
+          file.name
+        );
+
+        // Step 2: Upload with progress (30-90% progress)
+        setUploadProgress(30);
+        await uploadFileToR2WithProgress(file, presignedUrl, (progress) => {
+          // Map upload progress from 0-100% to 30-90% of total progress
+          setUploadProgress(30 + (progress * 0.6));
+        });
+
+        // Step 3: Complete upload (90-100% progress)
+        setUploadProgress(90);
+        const result = await completeDirectUpload(
+          uploadId,
+          pdfKey,
+          metadata,
+          file.name
+        );
+        setUploadProgress(100);
+        return result;
+      } catch (error) {
+        setUploadProgress(0);
+        throw error;
+      }
+    },
     onSuccess: () => {
       toast.success("Upload started", "Your file is being processed");
       // Invalidate upload status queries
       queryClient.invalidateQueries({ queryKey: ["upload", "status"] });
       queryClient.invalidateQueries({ queryKey: ["uploads"] });
+      // Reset progress after a short delay
+      setTimeout(() => setUploadProgress(0), 1000);
     },
     onError: (error) => {
       const errorMessage =
@@ -51,8 +88,14 @@ export const useUploadPdf = () => {
             error.message
           : error.message;
       toast.error("Upload failed", errorMessage);
+      setUploadProgress(0);
     },
   });
+
+  return {
+    ...mutation,
+    uploadProgress,
+  };
 };
 
 /**

@@ -2,6 +2,7 @@ import {
   S3Client,
   PutObjectCommand,
   GetObjectCommand,
+  HeadObjectCommand,
 } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
@@ -60,6 +61,19 @@ export async function getPresignedUrlForKey(
   return await getSignedUrl(s3, cmd, { expiresIn: ttlSec });
 }
 
+export async function getPresignedPutUrlForKey(
+  key: string,
+  contentType: string,
+  ttlSec = 3600 // 1 hour default
+): Promise<string> {
+  const cmd = new PutObjectCommand({
+    Bucket: R2_BUCKET as string,
+    Key: key,
+    ContentType: contentType,
+  });
+  return await getSignedUrl(s3, cmd, { expiresIn: ttlSec });
+}
+
 export async function downloadToBuffer(key: string): Promise<Buffer> {
   const res = await s3.send(
     new GetObjectCommand({ Bucket: R2_BUCKET as string, Key: key })
@@ -71,4 +85,21 @@ export async function downloadToBuffer(key: string): Promise<Buffer> {
     chunks.push(Buffer.from(chunk));
   }
   return Buffer.concat(chunks);
+}
+
+/**
+ * Check if a file exists in R2 without downloading it
+ */
+export async function fileExists(key: string): Promise<boolean> {
+  try {
+    await s3.send(
+      new HeadObjectCommand({ Bucket: R2_BUCKET as string, Key: key })
+    );
+    return true;
+  } catch (error: any) {
+    if (error.name === "NotFound" || error.$metadata?.httpStatusCode === 404) {
+      return false;
+    }
+    throw error;
+  }
 }
