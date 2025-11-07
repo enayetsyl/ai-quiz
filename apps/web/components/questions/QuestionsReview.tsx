@@ -412,7 +412,8 @@ export function QuestionsReview() {
                             {question.subject?.name} <br />{" "}
                             {question.chapter?.name}
                             <br />
-                            Page: {question.page?.pageNumber}
+                            Page: {question.page?.pageNumber} <br />
+                            Line: {question.lineIndex}
                           </TableCell>
                           <TableCell onClick={(e) => e.stopPropagation()}>
                             <div className="flex gap-2">

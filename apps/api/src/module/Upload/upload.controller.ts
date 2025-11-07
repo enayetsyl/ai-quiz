@@ -5,7 +5,12 @@ import { handleUpload } from "./upload.service";
 import { sendResponse } from "../../lib/http";
 import { getPresignedUrlForKey } from "../../lib/s3";
 
-const upload = multer({ storage: multer.memoryStorage() });
+const upload = multer({ 
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: 20 * 1024 * 1024, // 20 MB limit
+  },
+});
 
 export const uploadPdf = [
   // multer middleware to handle single file

@@ -74,8 +74,9 @@ async function handleRequest(
     // Get all cookies from the request to forward to Express
     const allCookies = request.headers.get("cookie") || "";
 
-    // Get content type to determine how to handle the body
+    // Get content type and content length to determine how to handle the body
     const contentType = request.headers.get("content-type") || "";
+    const contentLength = request.headers.get("content-length");
 
     // Forward all relevant headers
     const headers: Record<string, string> = {
@@ -85,20 +86,26 @@ async function handleRequest(
     // Get request body if present (for POST, PUT, PATCH)
     let body: BodyInit | undefined;
     if (["POST", "PUT", "PATCH"].includes(method)) {
-      // For multipart/form-data (file uploads), read as FormData and recreate
+      // For multipart/form-data (file uploads), stream the body directly
+      // to avoid Next.js/Amplify body size limits when reading into memory
       if (contentType.includes("multipart/form-data")) {
         try {
-          const formData = await request.formData();
-          // Create new FormData to forward to Express backend
-          const forwardedFormData = new FormData();
-          // Copy all fields from original FormData
-          for (const [key, value] of formData.entries()) {
-            forwardedFormData.append(key, value);
+          // Stream the request body directly to avoid memory limits
+          // This allows files up to 20MB to pass through on AWS Amplify
+          const requestBody = request.body;
+          if (requestBody) {
+            body = requestBody;
+            // Preserve the Content-Type with boundary for multipart/form-data
+            if (contentType) {
+              headers["Content-Type"] = contentType;
+            }
+            // Preserve Content-Length if available (helps with streaming)
+            if (contentLength) {
+              headers["Content-Length"] = contentLength;
+            }
           }
-          body = forwardedFormData;
-          // Don't set Content-Type header for FormData - let fetch set it with boundary
         } catch (error) {
-          console.error("Error reading form data:", error);
+          console.error("Error processing file upload:", error);
           return NextResponse.json(
             { success: false, message: "Error processing file upload" },
             { status: 400 }
@@ -121,9 +128,9 @@ async function handleRequest(
     }
 
     // Call Express backend with cookies
-    // For FormData, don't set Content-Type - fetch will set it with boundary
+    // For multipart/form-data, preserve the Content-Type header with boundary
     const fetchHeaders: HeadersInit = { ...headers };
-    if (!contentType.includes("multipart/form-data") && contentType) {
+    if (contentType && !contentType.includes("multipart/form-data")) {
       fetchHeaders["Content-Type"] = contentType;
     }
 
