@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   useClasses,
   useCreateClass,
@@ -25,6 +25,7 @@ import type {
   UpdateClassData,
 } from "@/lib/api/taxonomy/taxonomy";
 import { Pencil, Trash2, Plus } from "lucide-react";
+import { PaginationControls } from "@/components/shared/PaginationControls";
 
 export function ClassesManager() {
   const { data: classes, isLoading } = useClasses();
@@ -34,6 +35,28 @@ export function ClassesManager() {
   const [editingClass, setEditingClass] = useState<ClassLevel | null>(null);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [deletingClass, setDeletingClass] = useState<ClassLevel | null>(null);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+
+  const totalItems = classes?.length ?? 0;
+  const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
+
+  useEffect(() => {
+    if (!classes || classes.length === 0) {
+      setPage(1);
+      return;
+    }
+
+    if (page > totalPages) {
+      setPage(totalPages);
+    }
+  }, [classes, page, pageSize, totalPages]);
+
+  const paginatedClasses = useMemo(() => {
+    if (!classes) return [] as ClassLevel[];
+    const start = (page - 1) * pageSize;
+    return classes.slice(start, start + pageSize);
+  }, [classes, page, pageSize]);
 
   const handleCreate = (data: CreateClassData | UpdateClassData) => {
     if ("id" in data) {
@@ -97,7 +120,7 @@ export function ClassesManager() {
         </TableHeader>
         <TableBody>
           {classes && classes.length > 0 ? (
-            classes.map((classLevel) => (
+            paginatedClasses.map((classLevel) => (
               <TableRow key={classLevel.id}>
                 <TableCell>{classLevel.id}</TableCell>
                 <TableCell>{classLevel.displayName}</TableCell>
@@ -158,6 +181,16 @@ export function ClassesManager() {
         description={`Are you sure you want to delete "${deletingClass?.displayName}"? This action cannot be undone.`}
         isLoading={deleteClass.isPending}
       />
+
+      {classes && classes.length > 0 && (
+        <PaginationControls
+          currentPage={page}
+          totalPages={totalPages}
+          pageSize={pageSize}
+          onPageChange={setPage}
+          onPageSizeChange={setPageSize}
+        />
+      )}
     </div>
   );
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   useSubjects,
   useClasses,
@@ -33,6 +33,7 @@ import type {
   UpdateSubjectData,
 } from "@/lib/api/taxonomy/taxonomy";
 import { Pencil, Trash2, Plus } from "lucide-react";
+import { PaginationControls } from "@/components/shared/PaginationControls";
 
 export function SubjectsManager() {
   const [selectedClassId, setSelectedClassId] = useState<number | undefined>(
@@ -46,6 +47,32 @@ export function SubjectsManager() {
   const [editingSubject, setEditingSubject] = useState<Subject | null>(null);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [deletingSubject, setDeletingSubject] = useState<Subject | null>(null);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+
+  useEffect(() => {
+    setPage(1);
+  }, [selectedClassId]);
+
+  const totalItems = subjects?.length ?? 0;
+  const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
+
+  useEffect(() => {
+    if (!subjects || subjects.length === 0) {
+      setPage(1);
+      return;
+    }
+
+    if (page > totalPages) {
+      setPage(totalPages);
+    }
+  }, [subjects, page, pageSize, totalPages]);
+
+  const paginatedSubjects = useMemo(() => {
+    if (!subjects) return [] as Subject[];
+    const start = (page - 1) * pageSize;
+    return subjects.slice(start, start + pageSize);
+  }, [subjects, page, pageSize]);
 
   const handleCreate = (data: CreateSubjectData | UpdateSubjectData) => {
     if ("classId" in data) {
@@ -132,7 +159,7 @@ export function SubjectsManager() {
           </TableHeader>
           <TableBody>
             {subjects && subjects.length > 0 ? (
-              subjects.map((subject) => (
+              paginatedSubjects.map((subject) => (
                 <TableRow key={subject.id}>
                   <TableCell>{subject.name}</TableCell>
                   <TableCell>{subject.code || "-"}</TableCell>
@@ -195,6 +222,16 @@ export function SubjectsManager() {
         description={`Are you sure you want to delete "${deletingSubject?.name}"? This action cannot be undone.`}
         isLoading={deleteSubject.isPending}
       />
+
+      {subjects && subjects.length > 0 && (
+        <PaginationControls
+          currentPage={page}
+          totalPages={totalPages}
+          pageSize={pageSize}
+          onPageChange={setPage}
+          onPageSizeChange={setPageSize}
+        />
+      )}
     </div>
   );
 }

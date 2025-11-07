@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import { useUploads } from "@/lib/hooks/useUpload";
@@ -17,6 +18,7 @@ import { Badge } from "@/components/ui/badge";
 import { Plus, Loader2Icon } from "lucide-react";
 import Link from "next/link";
 import { format } from "date-fns";
+import { PaginationControls } from "@/components/shared/PaginationControls";
 
 const statusBadgeVariants = {
   pending: "secondary",
@@ -29,6 +31,28 @@ const statusBadgeVariants = {
 export default function UploadsPage() {
   const router = useRouter();
   const { data: uploads, isLoading } = useUploads();
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+
+  const totalItems = uploads?.length ?? 0;
+  const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
+
+  useEffect(() => {
+    if (!uploads || uploads.length === 0) {
+      setPage(1);
+      return;
+    }
+
+    if (page > totalPages) {
+      setPage(totalPages);
+    }
+  }, [uploads, page, pageSize, totalPages]);
+
+  const paginatedUploads = useMemo(() => {
+    if (!uploads) return [];
+    const start = (page - 1) * pageSize;
+    return uploads.slice(start, start + pageSize);
+  }, [uploads, page, pageSize]);
 
   const handleRowClick = (uploadId: string) => {
     router.push(`/uploads/${uploadId}`);
@@ -76,7 +100,7 @@ export default function UploadsPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {uploads.map((upload) => (
+                  {paginatedUploads.map((upload) => (
                     <TableRow
                       key={upload.id}
                       onClick={() => handleRowClick(upload.id)}
@@ -139,6 +163,16 @@ export default function UploadsPage() {
                 </Button>
               </Link>
             </div>
+          )}
+
+          {uploads && uploads.length > 0 && (
+            <PaginationControls
+              currentPage={page}
+              totalPages={totalPages}
+              pageSize={pageSize}
+              onPageChange={setPage}
+              onPageSizeChange={setPageSize}
+            />
           )}
         </div>
       </div>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   useChapters,
   useSubjects,
@@ -33,6 +33,7 @@ import type {
   UpdateChapterData,
 } from "@/lib/api/taxonomy/taxonomy";
 import { Pencil, Trash2, Plus } from "lucide-react";
+import { PaginationControls } from "@/components/shared/PaginationControls";
 
 export function ChaptersManager() {
   const [selectedSubjectId, setSelectedSubjectId] = useState<
@@ -46,6 +47,32 @@ export function ChaptersManager() {
   const [editingChapter, setEditingChapter] = useState<Chapter | null>(null);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [deletingChapter, setDeletingChapter] = useState<Chapter | null>(null);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+
+  useEffect(() => {
+    setPage(1);
+  }, [selectedSubjectId]);
+
+  const totalItems = chapters?.length ?? 0;
+  const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
+
+  useEffect(() => {
+    if (!chapters || chapters.length === 0) {
+      setPage(1);
+      return;
+    }
+
+    if (page > totalPages) {
+      setPage(totalPages);
+    }
+  }, [chapters, page, pageSize, totalPages]);
+
+  const paginatedChapters = useMemo(() => {
+    if (!chapters) return [] as Chapter[];
+    const start = (page - 1) * pageSize;
+    return chapters.slice(start, start + pageSize);
+  }, [chapters, page, pageSize]);
 
   const handleCreate = (data: CreateChapterData | UpdateChapterData) => {
     if ("subjectId" in data) {
@@ -127,7 +154,7 @@ export function ChaptersManager() {
           </TableHeader>
           <TableBody>
             {chapters && chapters.length > 0 ? (
-              chapters.map((chapter) => {
+              paginatedChapters.map((chapter) => {
                 const subject = subjects?.find(
                   (s) => s.id === chapter.subjectId
                 );
@@ -195,6 +222,16 @@ export function ChaptersManager() {
         description={`Are you sure you want to delete "${deletingChapter?.name}"? This action cannot be undone.`}
         isLoading={deleteChapter.isPending}
       />
+
+      {chapters && chapters.length > 0 && (
+        <PaginationControls
+          currentPage={page}
+          totalPages={totalPages}
+          pageSize={pageSize}
+          onPageChange={setPage}
+          onPageSizeChange={setPageSize}
+        />
+      )}
     </div>
   );
 }
