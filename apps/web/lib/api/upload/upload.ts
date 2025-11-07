@@ -32,6 +32,7 @@ export interface UploadStatusResponse {
   uploadId: string;
   pages: PageStatus[];
   pagesCount: number;
+  chapterId?: string;
 }
 
 export interface UploadListItem {

@@ -12,6 +12,7 @@ import {
 import {
   useRequeuePageGeneration,
   useRegeneratePageGeneration,
+  useRegenerateChapter,
 } from "@/lib/hooks/useGeneration";
 import { PageAttemptsDialog } from "@/components/upload/PageAttemptsDialog";
 import { UploadAttemptsDialog } from "@/components/upload/UploadAttemptsDialog";
@@ -50,6 +51,7 @@ export default function UploadStatusPage() {
   const regenerateMutation = useRegeneratePage();
   const requeuePageGenerationMutation = useRequeuePageGeneration();
   const regeneratePageGenerationMutation = useRegeneratePageGeneration();
+  const regenerateChapterMutation = useRegenerateChapter();
   const [selectedPageId, setSelectedPageId] = useState<string | null>(null);
   const [selectedPageNumber, setSelectedPageNumber] = useState<number>(0);
   const [showUploadAttempts, setShowUploadAttempts] = useState(false);
@@ -64,7 +66,18 @@ export default function UploadStatusPage() {
 
   const handleRegeneratePage = async (pageId: string) => {
     try {
-      await regenerateMutation.mutateAsync(pageId);
+      await regeneratePageGenerationMutation.mutateAsync({ pageId });
+    } catch {
+      // Error handled by mutation
+    }
+  };
+
+  const handleRegenerateChapter = async () => {
+    if (!uploadStatus?.chapterId) {
+      return;
+    }
+    try {
+      await regenerateChapterMutation.mutateAsync({ chapterId: uploadStatus.chapterId });
     } catch {
       // Error handled by mutation
     }
@@ -123,6 +136,25 @@ export default function UploadStatusPage() {
                 <FileText className="mr-2 h-4 w-4" />
                 View Attempts
               </Button>
+              {uploadStatus.chapterId && (
+                <Button
+                  variant="outline"
+                  onClick={handleRegenerateChapter}
+                  disabled={regenerateChapterMutation.isPending}
+                >
+                  {regenerateChapterMutation.isPending ? (
+                    <>
+                      <Loader2Icon className="mr-2 h-4 w-4 animate-spin" />
+                      Regenerating Chapter...
+                    </>
+                  ) : (
+                    <>
+                      <RefreshCw className="mr-2 h-4 w-4" />
+                      Regenerate Chapter
+                    </>
+                  )}
+                </Button>
+              )}
               <Button
                 variant="outline"
                 onClick={handleRequeue}
@@ -234,63 +266,27 @@ export default function UploadStatusPage() {
                           View Attempts
                         </Button>
                         <div className="flex gap-2">
-                          {page.status === "failed" && (
-                            <>
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => handleRegeneratePage(page.id)}
-                                disabled={
-                                  regenerateMutation.isPending ||
-                                  regeneratePageGenerationMutation.isPending
-                                }
-                                className="flex-1"
-                                title="Regenerate via Upload API"
-                              >
-                                {regenerateMutation.isPending ? (
-                                  <>
-                                    <Loader2Icon className="mr-2 h-4 w-4 animate-spin" />
-                                    Regenerating...
-                                  </>
-                                ) : (
-                                  <>
-                                    <RefreshCw className="mr-2 h-4 w-4" />
-                                    Regenerate
-                                  </>
-                                )}
-                              </Button>
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={async () => {
-                                  try {
-                                    await regeneratePageGenerationMutation.mutateAsync(
-                                      { pageId: page.id }
-                                    );
-                                  } catch {
-                                    // Error handled by mutation
-                                  }
-                                }}
-                                disabled={
-                                  regenerateMutation.isPending ||
-                                  regeneratePageGenerationMutation.isPending
-                                }
-                                className="flex-1"
-                                title="Regenerate via Generation API (hard-replace)"
-                              >
-                                {regeneratePageGenerationMutation.isPending ? (
-                                  <>
-                                    <Loader2Icon className="mr-2 h-4 w-4 animate-spin" />
-                                    Regenerating...
-                                  </>
-                                ) : (
-                                  <>
-                                    <RefreshCw className="mr-2 h-4 w-4" />
-                                    Hard Reset
-                                  </>
-                                )}
-                              </Button>
-                            </>
+                          {(page.status === "failed" || page.status === "complete") && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleRegeneratePage(page.id)}
+                              disabled={regeneratePageGenerationMutation.isPending}
+                              className="w-full"
+                              title="Regenerate page: Delete existing questions and generate new ones via LLM"
+                            >
+                              {regeneratePageGenerationMutation.isPending ? (
+                                <>
+                                  <Loader2Icon className="mr-2 h-4 w-4 animate-spin" />
+                                  Regenerating...
+                                </>
+                              ) : (
+                                <>
+                                  <RefreshCw className="mr-2 h-4 w-4" />
+                                  Regenerate Page
+                                </>
+                              )}
+                            </Button>
                           )}
                           {(page.status === "queued" ||
                             page.status === "generating" ||

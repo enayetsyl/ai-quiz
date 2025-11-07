@@ -8,6 +8,10 @@ export interface RegeneratePageRequest {
   pageId: string;
 }
 
+export interface RegenerateChapterRequest {
+  chapterId: string;
+}
+
 /**
  * Requeue page generation
  */
@@ -18,10 +22,19 @@ export const requeuePageGeneration = async (
 };
 
 /**
- * Regenerate a page (hard-replace: deletes existing questions)
+ * Regenerate a page (hard-replace: deletes existing questions and sends to LLM)
  */
 export const regeneratePage = async (
   data: RegeneratePageRequest
 ): Promise<void> => {
   await apiClient.post<ApiResponse<void>>("/generation/regenerate-page", data);
+};
+
+/**
+ * Regenerate a chapter (hard-replace: deletes existing questions for the chapter and sends all pages to LLM)
+ */
+export const regenerateChapter = async (
+  data: RegenerateChapterRequest
+): Promise<void> => {
+  await apiClient.post<ApiResponse<void>>("/generation/regenerate-chapter", data);
 };

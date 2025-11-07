@@ -177,7 +177,12 @@ export const getUploadStatus = async (req: Request, res: Response) => {
 
   return sendResponse(res, {
     success: true,
-    data: { uploadId: upload.id, pages, pagesCount: upload.pagesCount },
+    data: { 
+      uploadId: upload.id, 
+      pages, 
+      pagesCount: upload.pagesCount,
+      chapterId: upload.chapterId,
+    },
   });
 };
 
