@@ -62,7 +62,7 @@ async function handleRequest(
 ) {
   const startTime = Date.now();
   const path = params.path.join("/");
-  
+
   try {
     // Reconstruct the path from the catch-all route
     const url = new URL(request.url);
@@ -79,10 +79,14 @@ async function handleRequest(
     // Get content type and content length to determine how to handle the body
     const contentType = request.headers.get("content-type") || "";
     const contentLength = request.headers.get("content-length");
-    
+
     // Log request details for debugging (especially for uploads)
     if (contentType.includes("multipart/form-data")) {
-      console.log(`[UPLOAD] ${method} ${path} - Content-Type: ${contentType}, Content-Length: ${contentLength || "unknown"}`);
+      console.log(
+        `[UPLOAD] ${method} ${path} - Content-Type: ${contentType}, Content-Length: ${
+          contentLength || "unknown"
+        }`
+      );
     }
 
     // Forward all relevant headers
@@ -110,7 +114,9 @@ async function handleRequest(
             if (contentLength) {
               headers["Content-Length"] = contentLength;
             }
-            console.log(`[UPLOAD] Body stream obtained, forwarding to Express backend: ${expressUrl}`);
+            console.log(
+              `[UPLOAD] Body stream obtained, forwarding to Express backend: ${expressUrl}`
+            );
           } else {
             console.error(`[UPLOAD] ERROR: Request body is null or undefined`);
             return NextResponse.json(
@@ -159,7 +165,7 @@ async function handleRequest(
     if (contentType.includes("multipart/form-data")) {
       console.log(`[UPLOAD] Forwarding request to Express backend...`);
     }
-    
+
     const response = await fetch(expressUrl, {
       method,
       headers: fetchHeaders,
@@ -168,7 +174,9 @@ async function handleRequest(
 
     // Log response status
     if (contentType.includes("multipart/form-data")) {
-      console.log(`[UPLOAD] Express backend responded with status: ${response.status}`);
+      console.log(
+        `[UPLOAD] Express backend responded with status: ${response.status}`
+      );
     }
 
     // Get response data
@@ -180,11 +188,13 @@ async function handleRequest(
     } else {
       data = await response.text();
     }
-    
+
     // Log success for uploads
     if (contentType.includes("multipart/form-data")) {
       const duration = Date.now() - startTime;
-      console.log(`[UPLOAD] SUCCESS - ${method} ${path} completed in ${duration}ms, status: ${response.status}`);
+      console.log(
+        `[UPLOAD] SUCCESS - ${method} ${path} completed in ${duration}ms, status: ${response.status}`
+      );
     }
 
     // Create Next.js response with same status
@@ -205,7 +215,10 @@ async function handleRequest(
     return nextResponse;
   } catch (error) {
     const duration = Date.now() - startTime;
-    console.error(`[PROXY ERROR] ${method} ${path} failed after ${duration}ms:`, error);
+    console.error(
+      `[PROXY ERROR] ${method} ${path} failed after ${duration}ms:`,
+      error
+    );
     console.error(`[PROXY ERROR] Error details:`, {
       message: error instanceof Error ? error.message : String(error),
       stack: error instanceof Error ? error.stack : undefined,
@@ -214,8 +227,8 @@ async function handleRequest(
       method,
     });
     return NextResponse.json(
-      { 
-        success: false, 
+      {
+        success: false,
         message: "Internal server error",
         error: error instanceof Error ? error.message : String(error),
       },
