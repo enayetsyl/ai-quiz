@@ -60,9 +60,11 @@ async function handleRequest(
   params: { path: string[] },
   method: string
 ) {
+  const startTime = Date.now();
+  const path = params.path.join("/");
+  
   try {
     // Reconstruct the path from the catch-all route
-    const path = params.path.join("/");
     const url = new URL(request.url);
 
     // Get query string if present
@@ -77,6 +79,11 @@ async function handleRequest(
     // Get content type and content length to determine how to handle the body
     const contentType = request.headers.get("content-type") || "";
     const contentLength = request.headers.get("content-length");
+    
+    // Log request details for debugging (especially for uploads)
+    if (contentType.includes("multipart/form-data")) {
+      console.log(`[UPLOAD] ${method} ${path} - Content-Type: ${contentType}, Content-Length: ${contentLength || "unknown"}`);
+    }
 
     // Forward all relevant headers
     const headers: Record<string, string> = {
@@ -103,9 +110,23 @@ async function handleRequest(
             if (contentLength) {
               headers["Content-Length"] = contentLength;
             }
+            console.log(`[UPLOAD] Body stream obtained, forwarding to Express backend: ${expressUrl}`);
+          } else {
+            console.error(`[UPLOAD] ERROR: Request body is null or undefined`);
+            return NextResponse.json(
+              { success: false, message: "Request body is missing" },
+              { status: 400 }
+            );
           }
         } catch (error) {
-          console.error("Error processing file upload:", error);
+          console.error(`[UPLOAD] ERROR processing file upload:`, error);
+          console.error(`[UPLOAD] Error details:`, {
+            message: error instanceof Error ? error.message : String(error),
+            stack: error instanceof Error ? error.stack : undefined,
+            contentType,
+            contentLength,
+            path,
+          });
           return NextResponse.json(
             { success: false, message: "Error processing file upload" },
             { status: 400 }
@@ -134,11 +155,21 @@ async function handleRequest(
       fetchHeaders["Content-Type"] = contentType;
     }
 
+    // Log before making the fetch request
+    if (contentType.includes("multipart/form-data")) {
+      console.log(`[UPLOAD] Forwarding request to Express backend...`);
+    }
+    
     const response = await fetch(expressUrl, {
       method,
       headers: fetchHeaders,
       ...(body && { body }),
     });
+
+    // Log response status
+    if (contentType.includes("multipart/form-data")) {
+      console.log(`[UPLOAD] Express backend responded with status: ${response.status}`);
+    }
 
     // Get response data
     const contentTypeHeader = response.headers.get("content-type");
@@ -148,6 +179,12 @@ async function handleRequest(
       data = await response.json();
     } else {
       data = await response.text();
+    }
+    
+    // Log success for uploads
+    if (contentType.includes("multipart/form-data")) {
+      const duration = Date.now() - startTime;
+      console.log(`[UPLOAD] SUCCESS - ${method} ${path} completed in ${duration}ms, status: ${response.status}`);
     }
 
     // Create Next.js response with same status
@@ -167,9 +204,21 @@ async function handleRequest(
 
     return nextResponse;
   } catch (error) {
-    console.error(`Proxy API route error (${method}):`, error);
+    const duration = Date.now() - startTime;
+    console.error(`[PROXY ERROR] ${method} ${path} failed after ${duration}ms:`, error);
+    console.error(`[PROXY ERROR] Error details:`, {
+      message: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined,
+      name: error instanceof Error ? error.name : typeof error,
+      path,
+      method,
+    });
     return NextResponse.json(
-      { success: false, message: "Internal server error" },
+      { 
+        success: false, 
+        message: "Internal server error",
+        error: error instanceof Error ? error.message : String(error),
+      },
       { status: 500 }
     );
   }
