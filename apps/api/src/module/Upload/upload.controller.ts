@@ -4,7 +4,7 @@ import crypto from "crypto";
 import { uploadMetadataSchema } from "./upload.validation";
 import { handleUpload } from "./upload.service";
 import { sendResponse } from "../../lib/http";
-import { getPresignedUrlForKey, getPresignedPutUrlForKey, fileExists } from "../../lib/s3";
+import { getPresignedUrlForKey, getPresignedPutUrlForKey, fileExists, deleteObjects } from "../../lib/s3";
 import { prisma } from "../../lib";
 
 const upload = multer({ 
@@ -128,6 +128,7 @@ export const listUploads = async (req: Request, res: Response) => {
         classLevel: upload.class?.displayName || null,
         subject: upload.subject?.name || null,
         chapter: upload.chapter?.name || null,
+        chapterId: upload.chapterId || null,
       };
     })
   );
@@ -398,6 +399,123 @@ export const completeUpload = async (req: Request, res: Response) => {
       success: false,
       status: 500,
       message: "Failed to complete upload",
+      error: { message: error instanceof Error ? error.message : String(error) },
+    });
+  }
+};
+
+/**
+ * Delete a chapter and all associated data
+ * Deletes: chapter, uploads, pages, questions, published questions (QuestionBank), and S3/R2 files
+ */
+export const deleteChapter = async (req: Request, res: Response) => {
+  const chapterId = req.params.chapterId;
+
+  if (!chapterId) {
+    return sendResponse(res, {
+      success: false,
+      status: 400,
+      message: "Chapter ID is required",
+    });
+  }
+
+  try {
+    // Verify chapter exists
+    const chapter = await prisma.chapter.findUnique({
+      where: { id: chapterId },
+    });
+
+    if (!chapter) {
+      return sendResponse(res, {
+        success: false,
+        status: 404,
+        message: "Chapter not found",
+      });
+    }
+
+    // Fetch all uploads and pages before deletion to get S3 keys
+    const uploads = await prisma.upload.findMany({
+      where: { chapterId },
+      select: {
+        id: true,
+        s3PdfKey: true,
+        pages: {
+          select: {
+            id: true,
+            s3PngKey: true,
+            s3ThumbKey: true,
+          },
+        },
+      },
+    });
+
+    // Collect all S3 keys to delete
+    const s3KeysToDelete: string[] = [];
+
+    // Add PDF keys from uploads
+    uploads.forEach((upload) => {
+      if (upload.s3PdfKey) {
+        s3KeysToDelete.push(upload.s3PdfKey);
+      }
+    });
+
+    // Add PNG and thumbnail keys from pages
+    uploads.forEach((upload) => {
+      upload.pages.forEach((page) => {
+        if (page.s3PngKey) {
+          s3KeysToDelete.push(page.s3PngKey);
+        }
+        if (page.s3ThumbKey) {
+          s3KeysToDelete.push(page.s3ThumbKey);
+        }
+      });
+    });
+
+    // Delete S3 files first (before database records)
+    if (s3KeysToDelete.length > 0) {
+      await deleteObjects(s3KeysToDelete);
+    }
+
+    // Delete all related data in a transaction
+    // Order matters: delete in reverse dependency order to avoid foreign key conflicts
+    await prisma.$transaction(async (tx) => {
+      // 1. Delete QuestionBank entries (published questions) for this chapter
+      // These are independent and can be deleted first
+      await tx.questionBank.deleteMany({
+        where: { chapterId },
+      });
+
+      // 2. Delete Uploads for this chapter
+      // This will cascade delete:
+      //   - Pages (onDelete: Cascade)
+      //   - Questions linked to pages (onDelete: Cascade)
+      //   - PageGenerationAttempts (onDelete: Cascade)
+      await tx.upload.deleteMany({
+        where: { chapterId },
+      });
+
+      // 3. Delete any remaining Questions directly linked to this chapter
+      // (In case there are any orphaned questions not linked to pages)
+      await tx.question.deleteMany({
+        where: { chapterId },
+      });
+
+      // 4. Delete the chapter itself
+      await tx.chapter.delete({
+        where: { id: chapterId },
+      });
+    });
+
+    return sendResponse(res, {
+      success: true,
+      message: "Chapter and all associated data (including S3 files) deleted successfully",
+    });
+  } catch (error) {
+    console.error("Error deleting chapter:", error);
+    return sendResponse(res, {
+      success: false,
+      status: 500,
+      message: "Failed to delete chapter",
       error: { message: error instanceof Error ? error.message : String(error) },
     });
   }

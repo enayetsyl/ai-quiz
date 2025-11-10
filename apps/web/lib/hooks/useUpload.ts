@@ -8,6 +8,7 @@ import {
   regeneratePage,
   getPageAttempts,
   getUploadAttempts,
+  deleteChapter,
   type UploadMetadata,
   type UploadStatusResponse,
   type UploadListItem,
@@ -154,5 +155,34 @@ export const useUploadAttempts = (uploadId: string | null) => {
     queryKey: ["upload", "attempts", uploadId],
     queryFn: () => getUploadAttempts(uploadId!),
     enabled: !!uploadId,
+  });
+};
+
+/**
+ * Hook for deleting a chapter and all associated data
+ */
+export const useDeleteChapter = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation<void, AxiosError, string>({
+    mutationFn: (chapterId) => deleteChapter(chapterId),
+    onSuccess: () => {
+      toast.success(
+        "Chapter deleted",
+        "Chapter and all associated data have been deleted successfully"
+      );
+      // Invalidate uploads list to refresh the UI
+      queryClient.invalidateQueries({ queryKey: ["uploads"] });
+      // Also invalidate taxonomy queries in case chapters are shown elsewhere
+      queryClient.invalidateQueries({ queryKey: ["taxonomy", "chapters"] });
+    },
+    onError: (error) => {
+      const errorMessage =
+        error instanceof AxiosError && error.response?.data
+          ? (error.response.data as { message?: string }).message ||
+            error.message
+          : error.message;
+      toast.error("Delete failed", errorMessage);
+    },
   });
 };

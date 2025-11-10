@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
-import { useUploads } from "@/lib/hooks/useUpload";
+import { useUploads, useDeleteChapter } from "@/lib/hooks/useUpload";
 import {
   Table,
   TableBody,
@@ -15,10 +15,12 @@ import {
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Loader2Icon } from "lucide-react";
+import { Plus, Loader2Icon, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { format } from "date-fns";
 import { PaginationControls } from "@/components/shared/PaginationControls";
+import { DeleteConfirmationDialog } from "@/components/ui/delete-confirmation-dialog";
+import type { UploadListItem } from "@/lib/api/upload/upload";
 
 const statusBadgeVariants = {
   pending: "secondary",
@@ -31,8 +33,13 @@ const statusBadgeVariants = {
 export default function UploadsPage() {
   const router = useRouter();
   const { data: uploads, isLoading } = useUploads();
+  const deleteChapter = useDeleteChapter();
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
+  const [deletingChapter, setDeletingChapter] = useState<{
+    chapterId: string;
+    chapterName: string;
+  } | null>(null);
 
   const totalItems = uploads?.length ?? 0;
   const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
@@ -56,6 +63,29 @@ export default function UploadsPage() {
 
   const handleRowClick = (uploadId: string) => {
     router.push(`/uploads/${uploadId}`);
+  };
+
+  const handleDeleteClick = (
+    e: React.MouseEvent,
+    upload: UploadListItem
+  ) => {
+    e.stopPropagation(); // Prevent row click
+    if (upload.chapterId && upload.chapter) {
+      setDeletingChapter({
+        chapterId: upload.chapterId,
+        chapterName: upload.chapter,
+      });
+    }
+  };
+
+  const handleDeleteConfirm = () => {
+    if (deletingChapter) {
+      deleteChapter.mutate(deletingChapter.chapterId, {
+        onSuccess: () => {
+          setDeletingChapter(null);
+        },
+      });
+    }
   };
 
   if (isLoading) {
@@ -97,6 +127,7 @@ export default function UploadsPage() {
                     <TableHead>Pages</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Uploaded</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -148,6 +179,18 @@ export default function UploadsPage() {
                           "MMM dd, yyyy HH:mm"
                         )}
                       </TableCell>
+                      <TableCell className="text-right">
+                        {upload.chapterId && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={(e) => handleDeleteClick(e, upload)}
+                            className="text-destructive hover:text-destructive"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        )}
+                      </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
@@ -174,6 +217,15 @@ export default function UploadsPage() {
               onPageSizeChange={setPageSize}
             />
           )}
+
+          <DeleteConfirmationDialog
+            open={!!deletingChapter}
+            onOpenChange={(open) => !open && setDeletingChapter(null)}
+            onConfirm={handleDeleteConfirm}
+            title="Delete Chapter"
+            description={`Are you sure you want to delete the chapter "${deletingChapter?.chapterName}"? This will permanently delete the chapter, all associated uploads, pages, questions, and S3 files. This action cannot be undone.`}
+            isLoading={deleteChapter.isPending}
+          />
         </div>
       </div>
     </ProtectedRoute>

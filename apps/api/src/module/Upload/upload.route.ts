@@ -1,5 +1,6 @@
 import { Router } from "express";
 import requireAuth from "../../middleware/auth";
+import requireAdminOrApprover from "../../middleware/requireAdminOrApprover";
 import catchAsync from "../../utils/catchAsync";
 import uploadController, {
   listUploads,
@@ -10,6 +11,7 @@ import uploadController, {
   getUploadAttempts,
   initiateUpload,
   completeUpload,
+  deleteChapter,
 } from "./upload.controller";
 
 const router = Router();
@@ -37,6 +39,12 @@ router.get(
 router.get("/:id/attempts", requireAuth, catchAsync(getUploadAttempts as any));
 router.post("/initiate", requireAuth, catchAsync(initiateUpload as any));
 router.post("/complete", requireAuth, catchAsync(completeUpload as any));
+router.delete(
+  "/chapters/:chapterId",
+  requireAuth,
+  requireAdminOrApprover,
+  catchAsync(deleteChapter as any)
+);
 
 export const UploadRoutes = router;
 

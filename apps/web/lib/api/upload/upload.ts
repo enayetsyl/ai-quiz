@@ -47,6 +47,7 @@ export interface UploadListItem {
   classLevel: string | null;
   subject: string | null;
   chapter: string | null;
+  chapterId: string | null;
 }
 
 export interface GenerationAttempt {
@@ -149,4 +150,11 @@ export const getUploadAttempts = async (
     ApiResponse<{ uploadId: string; attempts: GenerationAttempt[] }>
   >(`/uploads/${uploadId}/attempts`);
   return extractApiData(response);
+};
+
+/**
+ * Delete a chapter and all associated data (uploads, pages, questions, S3 files)
+ */
+export const deleteChapter = async (chapterId: string): Promise<void> => {
+  await apiClient.delete<ApiResponse<void>>(`/uploads/chapters/${chapterId}`);
 };

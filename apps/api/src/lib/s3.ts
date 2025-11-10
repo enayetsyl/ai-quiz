@@ -3,6 +3,7 @@ import {
   PutObjectCommand,
   GetObjectCommand,
   HeadObjectCommand,
+  DeleteObjectCommand,
 } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
@@ -102,4 +103,36 @@ export async function fileExists(key: string): Promise<boolean> {
     }
     throw error;
   }
+}
+
+/**
+ * Delete a file from R2
+ * Silently handles cases where the file doesn't exist
+ */
+export async function deleteObject(key: string): Promise<void> {
+  try {
+    await s3.send(
+      new DeleteObjectCommand({ Bucket: R2_BUCKET as string, Key: key })
+    );
+  } catch (error: any) {
+    // If file doesn't exist, that's fine - we're deleting anyway
+    if (error.name === "NotFound" || error.$metadata?.httpStatusCode === 404) {
+      return;
+    }
+    throw error;
+  }
+}
+
+/**
+ * Delete multiple files from R2
+ * Continues even if some files don't exist
+ */
+export async function deleteObjects(keys: string[]): Promise<void> {
+  // Delete files in parallel, but don't fail if some don't exist
+  await Promise.allSettled(
+    keys.map((key) => deleteObject(key).catch((err) => {
+      // Log but don't throw - we want to continue deleting other files
+      console.warn(`Failed to delete S3 object ${key}:`, err);
+    }))
+  );
 }

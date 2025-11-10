@@ -50,7 +50,8 @@ export function DeleteConfirmationDialog({
           </Button>
           <Button
             type="button"
-            variant="destructive"
+            className="bg-red-600 text-white hover:bg-red-600/90 focus-visible:ring-destructive/20 dark:focus-visible:ring-destructive/40 dark:bg-destructive/60"
+            variant="default"
             onClick={handleConfirm}
             disabled={isLoading}
           >
