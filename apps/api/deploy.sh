@@ -99,6 +99,12 @@ else
     echo -e "${YELLOW}No running containers found${NC}"
 fi
 
+# Step 3.5: Clean Docker build cache and unused resources
+print_step "Step 3.5: Cleaning Docker build cache and unused resources..."
+docker builder prune -f > /dev/null 2>&1 || true
+docker system prune -f > /dev/null 2>&1 || true
+print_success "Docker cache cleaned"
+
 # Step 4: Remove old images
 print_step "Step 3: Removing old images..."
 IMAGES_TO_REMOVE=("$API_IMAGE" "$RASTERIZE_IMAGE" "$LLM_IMAGE")
