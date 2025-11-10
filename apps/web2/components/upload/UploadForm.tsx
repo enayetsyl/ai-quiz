@@ -7,6 +7,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useClasses, useSubjects, useChapters } from "@/lib/hooks/useTaxonomy";
 import { useUploadPdf, useUploads } from "@/lib/hooks/useUpload";
+import type { UploadListItem } from "@/lib/api/upload/upload";
 import {
   Form,
   FormControl,
