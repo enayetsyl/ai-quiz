@@ -1,6 +1,11 @@
 import prisma from "../../lib";
 import { HttpError } from "../../lib/http";
-import { QuestionFilterParams, BulkActionRequest } from "./question.types";
+import {
+  QuestionFilterParams,
+  BulkActionRequest,
+  ExportOptions,
+  ExportResult,
+} from "./question.types";
 import { getPresignedUrlForKey } from "../../lib/s3";
 import { Prisma } from "@prisma/client";
 import { publishQuestionsToBank } from "../QuestionBank/questionbank.service";
@@ -9,6 +14,7 @@ import {
   createPaginationMetadata,
   createPaginatedResponse,
 } from "../../utils/pagination";
+import { escapeHtml, generateBulkActionMessage } from "./question.utils";
 
 export async function listQuestions(filters: QuestionFilterParams) {
   const where: Prisma.QuestionWhereInput = {};
@@ -410,4 +416,60 @@ export async function fetchQuestionsForExport(args: {
   });
 
   return items;
+}
+
+/**
+ * Generates HTML export for questions as a Word-compatible document
+ */
+export function generateQuestionsExportHtml(
+  items: Awaited<ReturnType<typeof fetchQuestionsForExport>>,
+  options: ExportOptions = {}
+): ExportResult {
+  const { variant = "full" } = options;
+  const filenameBase = `questions_${new Date()
+    .toISOString()
+    .slice(0, 19)
+    .replace(/[:T]/g, "-")}`;
+
+  const htmlHeader =
+    '<!DOCTYPE html><html><head><meta charset="utf-8"><title>Questions</title></head><body>';
+  const htmlFooter = "</body></html>";
+
+  const block = (label: string, value: string) =>
+    `<p><strong>${label}:</strong> ${
+      value ? value.replace(/\n/g, "<br/>") : ""
+    }</p>`;
+
+  const section = items
+    .map(
+      (q, idx) =>
+        `<div style=\"margin-bottom:20px;\">` +
+        `<h3 style=\"margin:0 0 8px 0;\">${idx + 1}. ${escapeHtml(
+          q.stem
+        )}</h3>` +
+        block("A", escapeHtml(q.optionA)) +
+        block("B", escapeHtml(q.optionB)) +
+        block("C", escapeHtml(q.optionC)) +
+        block("D", escapeHtml(q.optionD)) +
+        (variant === "full"
+          ? block("Correct", escapeHtml(q.correctOption.toUpperCase())) +
+            block("Explanation", escapeHtml(q.explanation)) +
+            block(
+              "Taxonomy",
+              `${escapeHtml(q.class?.displayName || "")} / ${escapeHtml(
+                q.subject?.name || ""
+              )} / ${escapeHtml(q.chapter?.name || "")}`
+            )
+          : "") +
+        `</div>`
+    )
+    .join("");
+
+  const html = htmlHeader + section + htmlFooter;
+
+  return {
+    html,
+    filename: `${filenameBase}.doc`,
+    contentType: "application/msword; charset=utf-8",
+  };
 }

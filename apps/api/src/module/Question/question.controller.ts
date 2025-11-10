@@ -2,9 +2,10 @@ import { Request, Response, NextFunction } from "express";
 import { AuthRequest } from "../../middleware/auth";
 import * as svc from "./question.service";
 import * as v from "./question.validation";
-import { sendResponse, HttpError } from "../../lib/http";
+import { sendResponse } from "../../lib/http";
 import { publishQuestionsToBank } from "../QuestionBank/questionbank.service";
 import { questionExportQuerySchema } from "./question.validation";
+import { generateBulkActionMessage } from "./question.utils";
 
 export async function getQuestions(
   req: Request,
@@ -64,34 +65,17 @@ export async function bulkActionQuestions(
   // If action is "publish", delegate to QuestionBank service
   if (parsed.action === "publish") {
     const result = await publishQuestionsToBank(parsed.questionIds, userId);
+    const message = generateBulkActionMessage(parsed.action, result);
     return sendResponse(res, {
       success: true,
       data: result,
-      message: `${result.published} question(s) published to Question Bank`,
+      message,
     });
   }
 
   const result = await svc.bulkActionQuestions(parsed, userId);
-  
-  // Generate appropriate message based on action
-  let message = `Bulk action completed: ${parsed.action}`;
-  if (parsed.action === "approve") {
-    if (result.published !== undefined && result.published > 0) {
-      message = `${result.updated || result.published} question(s) approved and published to Question Bank`;
-      if (result.publishError) {
-        message += ` (Note: ${result.publishError})`;
-      }
-    } else {
-      message = `${result.updated || 0} question(s) approved`;
-    }
-  } else if (parsed.action === "reject") {
-    message = `${result.deleted || 0} question(s) rejected and deleted`;
-  } else if (parsed.action === "delete") {
-    message = `${result.deleted || 0} question(s) deleted`;
-  } else if (parsed.action === "needs_fix") {
-    message = `${result.updated || 0} question(s) marked as needs fix`;
-  }
-  
+  const message = generateBulkActionMessage(parsed.action, result);
+
   return sendResponse(res, {
     success: true,
     data: result,
@@ -118,48 +102,13 @@ export async function exportQuestions(
     },
   });
 
-  const filenameBase = `questions_${new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-")}`;
+  const exportResult = svc.generateQuestionsExportHtml(items, {
+    variant: query.variant,
+  });
 
-  // Word-compatible .doc via HTML
-  const htmlHeader =
-    "<!DOCTYPE html><html><head><meta charset=\"utf-8\"><title>Questions</title></head><body>";
-  const htmlFooter = "</body></html>";
-  const block = (label: string, value: string) =>
-    `<p><strong>${label}:</strong> ${value ? value.replace(/\n/g, "<br/>") : ""}</p>`;
-  const section = items
-    .map(
-      (q, idx) =>
-        `<div style=\"margin-bottom:20px;\">` +
-        `<h3 style=\"margin:0 0 8px 0;\">${idx + 1}. ${escapeHtml(q.stem)}</h3>` +
-        block("A", escapeHtml(q.optionA)) +
-        block("B", escapeHtml(q.optionB)) +
-        block("C", escapeHtml(q.optionC)) +
-        block("D", escapeHtml(q.optionD)) +
-        (query.variant === "full"
-          ?
-            block("Correct", escapeHtml(q.correctOption.toUpperCase())) +
-            block("Explanation", escapeHtml(q.explanation)) +
-            block(
-              "Taxonomy",
-              `${escapeHtml(q.class?.displayName || "")} / ${escapeHtml(q.subject?.name || "")} / ${escapeHtml(q.chapter?.name || "")}`
-            )
-          : "") +
-        `</div>`
-    )
-    .join("");
-  const html = htmlHeader + section + htmlFooter;
-  res.setHeader("Content-Type", "application/msword; charset=utf-8");
-  res.setHeader("Content-Disposition", `attachment; filename=\"${filenameBase}.doc\"`);
-  return res.send(html);
-}
-
-function escapeHtml(s: string) {
-  return (s || "")
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/\"/g, "&quot;")
-    .replace(/'/g, "&#039;");
+  res.setHeader("Content-Type", exportResult.contentType);
+  res.setHeader("Content-Disposition", `attachment; filename=\"${exportResult.filename}\"`);
+  return res.send(exportResult.html);
 }
 
 export default {

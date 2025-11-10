@@ -62,3 +62,13 @@ export interface BulkActionRequest {
   questionIds: string[];
   action: "approve" | "reject" | "needs_fix" | "delete" | "publish";
 }
+
+export interface ExportOptions {
+  variant?: "full" | "stem_options";
+}
+
+export interface ExportResult {
+  html: string;
+  filename: string;
+  contentType: string;
+}
