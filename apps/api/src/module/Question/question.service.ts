@@ -4,6 +4,11 @@ import { QuestionFilterParams, BulkActionRequest } from "./question.types";
 import { getPresignedUrlForKey } from "../../lib/s3";
 import { Prisma } from "@prisma/client";
 import { publishQuestionsToBank } from "../QuestionBank/questionbank.service";
+import {
+  getPaginationParams,
+  createPaginationMetadata,
+  createPaginatedResponse,
+} from "../../utils/pagination";
 
 export async function listQuestions(filters: QuestionFilterParams) {
   const where: Prisma.QuestionWhereInput = {};
@@ -27,9 +32,7 @@ export async function listQuestions(filters: QuestionFilterParams) {
   if (filters.language) where.language = filters.language;
   if (filters.difficulty) where.difficulty = filters.difficulty;
 
-  const page = filters.page || 1;
-  const pageSize = filters.pageSize || 20;
-  const skip = (page - 1) * pageSize;
+  const { page, pageSize, skip } = getPaginationParams(filters, 20);
 
   // Get total count for pagination
   const total = await prisma.question.count({ where });
@@ -89,15 +92,10 @@ export async function listQuestions(filters: QuestionFilterParams) {
     })
   );
 
-  return {
-    data: questionsWithUrls,
-    pagination: {
-      page,
-      pageSize,
-      total,
-      totalPages: Math.ceil(total / pageSize),
-    },
-  };
+  return createPaginatedResponse(
+    questionsWithUrls,
+    createPaginationMetadata(page, pageSize, total)
+  );
 }
 
 export async function getQuestionById(questionId: string) {

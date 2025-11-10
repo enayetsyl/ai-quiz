@@ -1,4 +1,9 @@
 import prisma from "../../lib";
+import {
+  getPaginationParams,
+  createPaginationMetadata,
+  createPaginatedResponse,
+} from "../../utils/pagination";
 
 export interface AdminFilters {
   page?: number;
@@ -11,9 +16,7 @@ export interface AdminFilters {
 }
 
 export async function getPageGenerationAttempts(filters: AdminFilters = {}) {
-  const page = filters.page || 1;
-  const pageSize = filters.pageSize || 50;
-  const skip = (page - 1) * pageSize;
+  const { page, pageSize, skip } = getPaginationParams(filters, 50);
 
   const where: any = {};
 
@@ -66,21 +69,14 @@ export async function getPageGenerationAttempts(filters: AdminFilters = {}) {
     prisma.pageGenerationAttempt.count({ where }),
   ]);
 
-  return {
-    data: attempts,
-    pagination: {
-      page,
-      pageSize,
-      total,
-      totalPages: Math.ceil(total / pageSize),
-    },
-  };
+  return createPaginatedResponse(
+    attempts,
+    createPaginationMetadata(page, pageSize, total)
+  );
 }
 
 export async function getLlmUsageEvents(filters: AdminFilters = {}) {
-  const page = filters.page || 1;
-  const pageSize = filters.pageSize || 50;
-  const skip = (page - 1) * pageSize;
+  const { page, pageSize, skip } = getPaginationParams(filters, 50);
 
   const where: any = {};
 
@@ -162,13 +158,10 @@ export async function getLlmUsageEvents(filters: AdminFilters = {}) {
   });
 
   return {
-    data: events,
-    pagination: {
-      page,
-      pageSize,
-      total,
-      totalPages: Math.ceil(total / pageSize),
-    },
+    ...createPaginatedResponse(
+      events,
+      createPaginationMetadata(page, pageSize, total)
+    ),
     stats: {
       totalEvents: stats._count.id,
       totalTokensIn: stats._sum.tokensIn || 0,
@@ -181,9 +174,7 @@ export async function getLlmUsageEvents(filters: AdminFilters = {}) {
 }
 
 export async function getPages(filters: AdminFilters = {}) {
-  const page = filters.page || 1;
-  const pageSize = filters.pageSize || 50;
-  const skip = (page - 1) * pageSize;
+  const { page, pageSize, skip } = getPaginationParams(filters, 50);
 
   const where: any = {};
 
@@ -232,21 +223,14 @@ export async function getPages(filters: AdminFilters = {}) {
     prisma.page.count({ where }),
   ]);
 
-  return {
-    data: pages,
-    pagination: {
-      page,
-      pageSize,
-      total,
-      totalPages: Math.ceil(total / pageSize),
-    },
-  };
+  return createPaginatedResponse(
+    pages,
+    createPaginationMetadata(page, pageSize, total)
+  );
 }
 
 export async function getApiTokens(filters: AdminFilters = {}) {
-  const page = filters.page || 1;
-  const pageSize = filters.pageSize || 50;
-  const skip = (page - 1) * pageSize;
+  const { page, pageSize, skip } = getPaginationParams(filters, 50);
 
   const where: any = {};
 
@@ -278,15 +262,10 @@ export async function getApiTokens(filters: AdminFilters = {}) {
     prisma.apiToken.count({ where }),
   ]);
 
-  return {
-    data: tokens,
-    pagination: {
-      page,
-      pageSize,
-      total,
-      totalPages: Math.ceil(total / pageSize),
-    },
-  };
+  return createPaginatedResponse(
+    tokens,
+    createPaginationMetadata(page, pageSize, total)
+  );
 }
 
 export async function getAdminDashboardStats() {
