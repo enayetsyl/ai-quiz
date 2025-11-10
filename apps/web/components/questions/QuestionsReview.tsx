@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuestions, useBulkActionQuestions } from "@/lib/hooks/useQuestion";
 import { useClasses, useSubjects, useChapters } from "@/lib/hooks/useTaxonomy";
 import type { QuestionFilters } from "@/lib/api/question/question";
@@ -79,6 +79,15 @@ export function QuestionsReview() {
 
   const questions = questionsResponse?.data || [];
   const pagination = questionsResponse?.pagination;
+
+  // Ensure current page is within available total pages (after bulk actions or filter changes)
+  useEffect(() => {
+    if (!pagination) return;
+    const totalPages = Math.max(1, pagination.totalPages || 1);
+    if (page > totalPages) {
+      setPage(totalPages);
+    }
+  }, [pagination?.totalPages]);
 
   // Reset to page 1 when filters change
   const handleFilterChange = () => {

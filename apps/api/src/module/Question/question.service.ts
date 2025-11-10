@@ -12,7 +12,18 @@ export async function listQuestions(filters: QuestionFilterParams) {
   if (filters.subjectId) where.subjectId = filters.subjectId;
   if (filters.chapterId) where.chapterId = filters.chapterId;
   if (filters.pageId) where.pageId = filters.pageId;
-  if (filters.status) where.status = filters.status;
+
+  // If status filter is explicitly set, use it
+  // Otherwise, exclude approved and rejected questions by default
+  if (filters.status) {
+    where.status = filters.status;
+  } else {
+    // Exclude approved and rejected questions when no status filter is provided
+    where.status = {
+      notIn: ["approved", "rejected"],
+    };
+  }
+
   if (filters.language) where.language = filters.language;
   if (filters.difficulty) where.difficulty = filters.difficulty;
 
@@ -232,7 +243,7 @@ export async function bulkActionQuestions(
         approve: "approved",
       };
       // Update status for all questions to approved
-      await prisma.question.updateMany({
+      const updateResult = await prisma.question.updateMany({
         where: { id: { in: questionIds } },
         data: {
           status: approveStatusMap[action],
@@ -240,9 +251,34 @@ export async function bulkActionQuestions(
         },
       });
 
+      // Verify questions still exist after update (defensive check)
+      const questionsAfterUpdate = await prisma.question.findMany({
+        where: { id: { in: questionIds } },
+        select: { id: true },
+      });
+
+      if (questionsAfterUpdate.length !== questionIds.length) {
+        console.error(
+          `[bulkActionQuestions] Warning: Some questions were deleted during approval. Expected ${questionIds.length}, found ${questionsAfterUpdate.length}`
+        );
+      }
+
       // Automatically publish approved questions
       try {
         const publishResult = await publishQuestionsToBank(questionIds, userId);
+
+        // Verify questions still exist after publishing (defensive check)
+        const questionsAfterPublish = await prisma.question.findMany({
+          where: { id: { in: questionIds } },
+          select: { id: true },
+        });
+
+        if (questionsAfterPublish.length !== questionIds.length) {
+          console.error(
+            `[bulkActionQuestions] Warning: Some questions were deleted during publishing. Expected ${questionIds.length}, found ${questionsAfterPublish.length}`
+          );
+        }
+
         return {
           updated: questions.length,
           published: publishResult.published,
@@ -250,6 +286,19 @@ export async function bulkActionQuestions(
       } catch (publishError) {
         // If publishing fails, still return success for approval
         // The questions are approved but not yet published
+
+        // Verify questions still exist after failed publish (defensive check)
+        const questionsAfterFailedPublish = await prisma.question.findMany({
+          where: { id: { in: questionIds } },
+          select: { id: true },
+        });
+
+        if (questionsAfterFailedPublish.length !== questionIds.length) {
+          console.error(
+            `[bulkActionQuestions] Warning: Some questions were deleted during failed publishing. Expected ${questionIds.length}, found ${questionsAfterFailedPublish.length}`
+          );
+        }
+
         return {
           updated: questions.length,
           published: 0,

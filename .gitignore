@@ -12,6 +12,9 @@ dist/
 apps/api/.env*
 apps/web/.env*
 
+markdown-files/
+blog/
+
 # Logs
 logs/
 *.log
@@ -23,3 +26,5 @@ logs/
 # package-lock.json
 # yarn.lock
 deployment.md
+quiz-generation-key.pem
+ticket-feature.md

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useQuestions, useBulkActionQuestions } from "@/lib/hooks/useQuestion";
 import { useClasses, useSubjects, useChapters } from "@/lib/hooks/useTaxonomy";
 import type { QuestionFilters } from "@/lib/api/question/question";
@@ -70,6 +70,7 @@ export function QuestionsReview() {
   const [editingQuestion, setEditingQuestion] = useState<string | null>(null);
   const [viewingQuestion, setViewingQuestion] = useState<string | null>(null);
   const [viewingImage, setViewingImage] = useState<string | null>(null);
+  const shouldAdjustPaginationAfterBulkAction = useRef(false);
 
   const { data: classes } = useClasses();
   const { data: subjects } = useSubjects(selectedClassId);
@@ -113,10 +114,41 @@ export function QuestionsReview() {
     URL.revokeObjectURL(url);
   };
 
-  const questions = (questionsResponse?.data || []).filter(
-    (q) => q.status !== "approved"
-  );
+  // Backend now handles filtering, so we can use the data directly
+  const questions = questionsResponse?.data || [];
   const pagination = questionsResponse?.pagination;
+
+  // Ensure current page is within available total pages (after bulk actions or filter changes)
+  useEffect(() => {
+    if (!pagination) return;
+    const totalPages = Math.max(1, pagination.totalPages || 1);
+    if (page > totalPages) {
+      setPage(totalPages);
+    }
+  }, [pagination?.totalPages, page]);
+
+  // If current page is empty after bulk action, navigate to a page with content
+  // Only adjust pagination after bulk actions, not on manual page navigation
+  useEffect(() => {
+    if (
+      shouldAdjustPaginationAfterBulkAction.current &&
+      !isLoading &&
+      questions.length === 0 &&
+      pagination
+    ) {
+      // Only adjust if we just completed a bulk action
+      if (page > 1) {
+        // Try going to page 1 first to see if there are any unapproved questions there
+        setPage(1);
+      } else if (page === 1 && pagination.totalPages > 1) {
+        // If page 1 is empty but there are more pages, go to the last page
+        const totalPages = Math.max(1, pagination.totalPages || 1);
+        setPage(totalPages);
+      }
+      // Reset the flag after adjusting
+      shouldAdjustPaginationAfterBulkAction.current = false;
+    }
+  }, [questions.length, isLoading, pagination, page]);
 
   // Reset to page 1 when filters change
   const handleFilterChange = () => {
@@ -165,6 +197,9 @@ export function QuestionsReview() {
       {
         onSuccess: () => {
           setSelectedQuestionIds(new Set());
+          // Set flag to adjust pagination after bulk action completes
+          // This will trigger the useEffect to check if current page is empty
+          shouldAdjustPaginationAfterBulkAction.current = true;
         },
       }
     );
