@@ -1,24 +1,16 @@
 import { Request, Response, NextFunction } from "express";
 import { AuthRequest } from "../../middleware/auth";
 import * as svc from "./questionbank.service";
-import { z } from "zod";
+import * as v from "./questionbank.validation";
 import { sendResponse } from "../../lib/http";
-
-const questionBankFilterSchema = z.object({
-  classId: z.coerce.number().int().min(1).max(10).optional(),
-  subjectId: z.string().uuid().optional(),
-  chapterId: z.string().uuid().optional(),
-  pageId: z.string().uuid().optional(),
-  language: z.enum(["bn", "en"]).optional(),
-  difficulty: z.enum(["easy", "medium", "hard"]).optional(),
-});
+import { escapeHtml } from "./questionbank.utils";
 
 export async function getQuestionBank(
   req: Request,
   res: Response,
   _next: NextFunction
 ) {
-  const filters = questionBankFilterSchema.parse(req.query);
+  const filters = v.questionBankFilterSchema.parse(req.query);
   const data = await svc.listQuestionBank(filters);
   return sendResponse(res, { success: true, data });
 }
@@ -38,9 +30,7 @@ export async function publishQuestions(
   res: Response,
   _next: NextFunction
 ) {
-  const { questionIds } = z
-    .object({ questionIds: z.array(z.string().uuid()).min(1) })
-    .parse(req.body);
+  const { questionIds } = v.publishQuestionsSchema.parse(req.body);
   const userId = req.user?.id;
 
   const result = await svc.publishQuestionsToBank(questionIds, userId);
@@ -52,30 +42,12 @@ export async function publishQuestions(
   });
 }
 
-const exportQuerySchema = z.object({
-  ids: z
-    .string()
-    .transform((s) => s.split(",").map((v) => v.trim()).filter(Boolean))
-    .refine((arr) => arr.every((id) => z.string().uuid().safeParse(id).success), {
-      message: "ids must be comma-separated UUIDs",
-    })
-    .optional(),
-  format: z.enum(["doc"]).default("doc"),
-  variant: z.enum(["full", "stem_options"]).default("full"),
-  classId: z.coerce.number().int().min(1).max(10).optional(),
-  subjectId: z.string().uuid().optional(),
-  chapterId: z.string().uuid().optional(),
-  pageId: z.string().uuid().optional(),
-  language: z.enum(["bn", "en"]).optional(),
-  difficulty: z.enum(["easy", "medium", "hard"]).optional(),
-});
-
 export async function exportQuestionBank(
   req: Request,
   res: Response,
   _next: NextFunction
 ) {
-  const query = exportQuerySchema.parse(req.query);
+  const query = v.exportQuerySchema.parse(req.query);
   const items = await svc.fetchQuestionBankForExport({
     ids: query.ids,
     filters: {
@@ -119,15 +91,6 @@ export async function exportQuestionBank(
   res.setHeader("Content-Type", "application/msword; charset=utf-8");
   res.setHeader("Content-Disposition", `attachment; filename=\"${filenameBase}.doc\"`);
   return res.send(`<!DOCTYPE html><html><head><meta charset=\"utf-8\"><title>Question Bank</title></head><body>${html}</body></html>`);
-}
-
-function escapeHtml(s: string) {
-  return (s || "")
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/\"/g, "&quot;")
-    .replace(/'/g, "&#039;");
 }
 
 export default {
