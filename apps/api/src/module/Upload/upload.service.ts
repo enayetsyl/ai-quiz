@@ -27,6 +27,26 @@ export async function handleUpload({
     throw new Error("File exceeds 20 MB limit");
   }
 
+  // Check if an upload for this chapter already exists
+  const existingUpload = await prisma.upload.findFirst({
+    where: {
+      classId: metadata.classId,
+      subjectId: metadata.subjectId,
+      chapterId: metadata.chapterId,
+    },
+    select: {
+      id: true,
+      originalFilename: true,
+      createdAt: true,
+    },
+  });
+
+  if (existingUpload) {
+    throw new Error(
+      `A chapter for this class, subject, and chapter combination has already been uploaded. Existing upload: ${existingUpload.originalFilename} (uploaded on ${existingUpload.createdAt.toLocaleDateString()})`
+    );
+  }
+
   // create DB upload row (pagesCount will be filled by worker after pdfinfo)
   const upload = await prisma.upload.create({
     data: {

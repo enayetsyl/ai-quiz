@@ -39,18 +39,35 @@ export const uploadPdf = [
         message: "No file uploaded",
       });
 
-    const uploadRecord = await handleUpload({
-      fileBuffer: req.file.buffer,
-      originalname: req.file.originalname,
-      mimetype: req.file.mimetype,
-      metadata: parse.data,
-      uploadedBy: (req as any).user?.id ?? null,
-    });
-    return sendResponse(res, {
-      success: true,
-      data: { uploadId: uploadRecord.id },
-      message: "Upload accepted",
-    });
+    try {
+      const uploadRecord = await handleUpload({
+        fileBuffer: req.file.buffer,
+        originalname: req.file.originalname,
+        mimetype: req.file.mimetype,
+        metadata: parse.data,
+        uploadedBy: (req as any).user?.id ?? null,
+      });
+      return sendResponse(res, {
+        success: true,
+        data: { uploadId: uploadRecord.id },
+        message: "Upload accepted",
+      });
+    } catch (error) {
+      // Handle duplicate upload error
+      if (error instanceof Error && error.message.includes("already been uploaded")) {
+        return sendResponse(res, {
+          success: false,
+          status: 409,
+          message: "Duplicate upload detected",
+          error: {
+            message: error.message,
+            code: "duplicate_upload",
+          },
+        });
+      }
+      // Re-throw other errors to be handled by error middleware
+      throw error;
+    }
   },
 ];
 
@@ -358,6 +375,32 @@ export const completeUpload = async (req: Request, res: Response) => {
         message: "Invalid metadata",
         error: { message: "validation failed", code: "validation_error" },
         meta: { validation: parse.error.errors },
+      });
+    }
+
+    // Check if an upload for this chapter already exists
+    const existingUpload = await prisma.upload.findFirst({
+      where: {
+        classId: parse.data.classId,
+        subjectId: parse.data.subjectId,
+        chapterId: parse.data.chapterId,
+      },
+      select: {
+        id: true,
+        originalFilename: true,
+        createdAt: true,
+      },
+    });
+
+    if (existingUpload) {
+      return sendResponse(res, {
+        success: false,
+        status: 409,
+        message: "Duplicate upload detected",
+        error: {
+          message: `A chapter for this class, subject, and chapter combination has already been uploaded. Existing upload: ${existingUpload.originalFilename} (uploaded on ${existingUpload.createdAt.toLocaleDateString()})`,
+          code: "duplicate_upload",
+        },
       });
     }
 

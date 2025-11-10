@@ -65,10 +65,7 @@ export default function UploadsPage() {
     router.push(`/uploads/${uploadId}`);
   };
 
-  const handleDeleteClick = (
-    e: React.MouseEvent,
-    upload: UploadListItem
-  ) => {
+  const handleDeleteClick = (e: React.MouseEvent, upload: UploadListItem) => {
     e.stopPropagation(); // Prevent row click
     if (upload.chapterId && upload.chapter) {
       setDeletingChapter({

@@ -6,7 +6,7 @@ import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useClasses, useSubjects, useChapters } from "@/lib/hooks/useTaxonomy";
-import { useUploadPdf } from "@/lib/hooks/useUpload";
+import { useUploadPdf, useUploads } from "@/lib/hooks/useUpload";
 import {
   Form,
   FormControl,
@@ -83,6 +83,7 @@ export function UploadForm() {
     useChapters(selectedSubjectId);
 
   const uploadMutation = useUploadPdf();
+  const { data: existingUploads } = useUploads();
 
   const form = useForm<UploadFormValues>({
     resolver: zodResolver(uploadSchema),
@@ -127,7 +128,28 @@ export function UploadForm() {
     }
   };
 
+  // Check for duplicate upload before submitting
+  // Note: Since chapterId is unique, checking by chapterId is sufficient
+  // Backend will do the final validation with classId, subjectId, and chapterId
+  const checkForDuplicate = (chapterId: string): UploadListItem | null => {
+    if (!existingUploads) return null;
+    return existingUploads.find((upload) => upload.chapterId === chapterId) || null;
+  };
+
   const onSubmit = async (data: UploadFormValues) => {
+    // Frontend validation: Check for duplicate before submitting
+    // This provides immediate feedback, but backend is the final source of truth
+    const duplicate = checkForDuplicate(data.chapterId);
+
+    if (duplicate) {
+      const uploadDate = new Date(duplicate.createdAt).toLocaleDateString();
+      toast.error(
+        "Duplicate Upload",
+        `This chapter has already been uploaded. Existing upload: ${duplicate.originalFilename} (uploaded on ${uploadDate}). Please delete the existing upload first if you want to re-upload.`
+      );
+      return;
+    }
+
     try {
       await uploadMutation.mutateAsync({
         file: data.file,
@@ -145,6 +167,7 @@ export function UploadForm() {
       router.push(`/uploads`);
     } catch {
       // Error is handled by the mutation hook
+      // Backend validation will catch any duplicates that weren't caught by frontend
     }
   };
 
