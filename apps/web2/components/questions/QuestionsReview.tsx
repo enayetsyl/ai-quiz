@@ -210,14 +210,88 @@ export function QuestionsReview() {
     questions.length > 0 &&
     selectedQuestionIds.size === questions.length;
 
-  if (isLoading) {
-    return (
-      <Card>
-        <CardContent className="py-8">
-          <Skeleton className="h-64 w-full" />
+  const TableSkeleton = () => (
+    <>
+      <Card className="mb-6">
+        <CardHeader>
+          <CardTitle>Filters</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid gap-4 md:grid-cols-4">
+            <Skeleton className="h-10 w-full" />
+            <Skeleton className="h-10 w-full" />
+            <Skeleton className="h-10 w-full" />
+            <Skeleton className="h-10 w-full" />
+          </div>
         </CardContent>
       </Card>
-    );
+      <Card>
+        <CardHeader>
+          <Skeleton className="h-6 w-32" />
+        </CardHeader>
+        <CardContent>
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-12"></TableHead>
+                  <TableHead>Stem</TableHead>
+                  <TableHead>Options</TableHead>
+                  <TableHead>Correct</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Taxonomy</TableHead>
+                  <TableHead>Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {Array.from({ length: pageSize }).map((_, i) => (
+                  <TableRow key={i}>
+                    <TableCell>
+                      <Skeleton className="h-4 w-4" />
+                    </TableCell>
+                    <TableCell>
+                      <Skeleton className="h-4 w-64" />
+                    </TableCell>
+                    <TableCell>
+                      <div className="space-y-1">
+                        <Skeleton className="h-3 w-48" />
+                        <Skeleton className="h-3 w-48" />
+                        <Skeleton className="h-3 w-48" />
+                        <Skeleton className="h-3 w-48" />
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <Skeleton className="h-5 w-12" />
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-2">
+                        <Skeleton className="h-4 w-4" />
+                        <Skeleton className="h-5 w-20" />
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <Skeleton className="h-4 w-32" />
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex gap-2">
+                        <Skeleton className="h-8 w-8" />
+                        <Skeleton className="h-8 w-12" />
+                        <Skeleton className="h-8 w-8" />
+                        <Skeleton className="h-8 w-8" />
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        </CardContent>
+      </Card>
+    </>
+  );
+
+  if (isLoading) {
+    return <TableSkeleton />;
   }
 
   return (
