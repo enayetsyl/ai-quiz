@@ -3,10 +3,10 @@ name: Deploy Backend to EC2 (Option 1)
 on:
   push:
     branches: ["main"]
-    # Optional: limit to backend changes
-    # paths:
-    #   - "apps/api/**"
-    #   - ".github/workflows/deploy-backend.yml"
+    # Only deploy when backend code changes
+    paths:
+      - "apps/api/**"
+      - ".github/workflows/deploy-backend.yml"
 
 jobs:
   deploy:
