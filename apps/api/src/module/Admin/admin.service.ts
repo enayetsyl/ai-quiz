@@ -4,15 +4,27 @@ import {
   createPaginationMetadata,
   createPaginatedResponse,
 } from "../../utils/pagination";
+import { AdminFilters } from "./admin.types";
 
-export interface AdminFilters {
-  page?: number;
-  pageSize?: number;
-  startDate?: string;
-  endDate?: string;
-  pageId?: string;
-  model?: string;
-  isSuccess?: boolean;
+/**
+ * Builds a date filter object for Prisma where clauses
+ */
+function buildDateFilter(
+  startDate?: string,
+  endDate?: string
+): { gte?: Date; lte?: Date } | undefined {
+  if (!startDate && !endDate) {
+    return undefined;
+  }
+
+  const filter: { gte?: Date; lte?: Date } = {};
+  if (startDate) {
+    filter.gte = new Date(startDate);
+  }
+  if (endDate) {
+    filter.lte = new Date(endDate);
+  }
+  return filter;
 }
 
 export async function getPageGenerationAttempts(filters: AdminFilters = {}) {
@@ -32,14 +44,9 @@ export async function getPageGenerationAttempts(filters: AdminFilters = {}) {
     where.isSuccess = filters.isSuccess;
   }
 
-  if (filters.startDate || filters.endDate) {
-    where.createdAt = {};
-    if (filters.startDate) {
-      where.createdAt.gte = new Date(filters.startDate);
-    }
-    if (filters.endDate) {
-      where.createdAt.lte = new Date(filters.endDate);
-    }
+  const dateFilter = buildDateFilter(filters.startDate, filters.endDate);
+  if (dateFilter) {
+    where.createdAt = dateFilter;
   }
 
   const [attempts, total] = await Promise.all([
@@ -88,14 +95,9 @@ export async function getLlmUsageEvents(filters: AdminFilters = {}) {
     where.model = filters.model;
   }
 
-  if (filters.startDate || filters.endDate) {
-    where.createdAt = {};
-    if (filters.startDate) {
-      where.createdAt.gte = new Date(filters.startDate);
-    }
-    if (filters.endDate) {
-      where.createdAt.lte = new Date(filters.endDate);
-    }
+  const dateFilter = buildDateFilter(filters.startDate, filters.endDate);
+  if (dateFilter) {
+    where.createdAt = dateFilter;
   }
 
   const [events, total] = await Promise.all([
@@ -138,15 +140,7 @@ export async function getLlmUsageEvents(filters: AdminFilters = {}) {
 
   // Calculate summary statistics
   const stats = await prisma.llmUsageEvent.aggregate({
-    where:
-      filters.startDate || filters.endDate
-        ? {
-            createdAt: {
-              ...(filters.startDate && { gte: new Date(filters.startDate) }),
-              ...(filters.endDate && { lte: new Date(filters.endDate) }),
-            },
-          }
-        : undefined,
+    where: dateFilter ? { createdAt: dateFilter } : undefined,
     _sum: {
       tokensIn: true,
       tokensOut: true,
@@ -182,14 +176,9 @@ export async function getPages(filters: AdminFilters = {}) {
     where.id = filters.pageId;
   }
 
-  if (filters.startDate || filters.endDate) {
-    where.createdAt = {};
-    if (filters.startDate) {
-      where.createdAt.gte = new Date(filters.startDate);
-    }
-    if (filters.endDate) {
-      where.createdAt.lte = new Date(filters.endDate);
-    }
+  const dateFilter = buildDateFilter(filters.startDate, filters.endDate);
+  if (dateFilter) {
+    where.createdAt = dateFilter;
   }
 
   const [pages, total] = await Promise.all([
@@ -234,14 +223,9 @@ export async function getApiTokens(filters: AdminFilters = {}) {
 
   const where: any = {};
 
-  if (filters.startDate || filters.endDate) {
-    where.createdAt = {};
-    if (filters.startDate) {
-      where.createdAt.gte = new Date(filters.startDate);
-    }
-    if (filters.endDate) {
-      where.createdAt.lte = new Date(filters.endDate);
-    }
+  const dateFilter = buildDateFilter(filters.startDate, filters.endDate);
+  if (dateFilter) {
+    where.createdAt = dateFilter;
   }
 
   const [tokens, total] = await Promise.all([
