@@ -133,7 +133,7 @@ Field rules:
 }
 
 async function processPage(job: Job) {
-  const { pageId } = job.data as { pageId: string };
+  const { pageId, customPrompt } = job.data as { pageId: string; customPrompt?: string };
 
   const page = await prisma.page.findUnique({
     where: { id: pageId },
@@ -194,8 +194,40 @@ async function processPage(job: Job) {
   const model = reservation.modelId;
 
   try {
-    // Use different prompts for math vs non-math subjects
-    const prompt = isMathSubject ? getMathPrompt() : getNonMathPrompt();
+    // Use custom prompt if provided, otherwise use default prompts based on subject type
+    let prompt: string;
+    if (customPrompt && customPrompt.trim().length > 0) {
+      // Append JSON format requirements to custom prompt to ensure proper response format
+      const jsonFormatRequirement = `
+
+Output format (STRICT):
+- Return a single raw JSON object (UTF-8). NO markdown, NO code fences, NO comments, NO extra keys.
+- The JSON MUST match this schema exactly:
+{
+  "questions": [
+    {
+      "stem": "string",
+      "options": { "a": "string", "b": "string", "c": "string", "d": "string" },
+      "correct_option": "a|b|c|d",
+      "explanation": "string",
+      "difficulty": "easy|medium|hard"
+    }
+  ]
+}
+
+Field rules:
+- stem: complete problem statement or concept question; same language as page. For Bengali: preserve exact spelling and mathematical terms.
+- options.a–d: mutually exclusive, plausible; same language as page. For Bengali: preserve exact spelling from source.
+- correct_option: one of "a","b","c","d" (lowercase).
+- explanation: short, why the correct is correct (can include solution steps for math). Same language as page with exact Bengali spelling.
+- difficulty: one of "easy","medium","hard"; keep page-level ratio ~40/35/25 for math, ~50/30/20 for non-math.
+- Do NOT include markdown fences or any text outside the JSON.`;
+      prompt = customPrompt.trim() + jsonFormatRequirement;
+      logger.info({ pageId }, "Using custom prompt for page generation (with JSON format requirements appended)");
+    } else {
+      // Use different prompts for math vs non-math subjects
+      prompt = isMathSubject ? getMathPrompt() : getNonMathPrompt();
+    }
     // Call GenAI SDK with downloaded image buffer (sent as base64 inlineData)
     const resp = await callGenAISDK(model, prompt, imageBuffer);
     const sdkRaw = resp.sdkRaw ?? resp.raw;

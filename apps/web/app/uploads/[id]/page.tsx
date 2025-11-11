@@ -16,6 +16,7 @@ import {
 } from "@/lib/hooks/useGeneration";
 import { PageAttemptsDialog } from "@/components/upload/PageAttemptsDialog";
 import { UploadAttemptsDialog } from "@/components/upload/UploadAttemptsDialog";
+import { RegeneratePromptDialog } from "@/components/upload/RegeneratePromptDialog";
 import {
   Card,
   CardContent,
@@ -33,6 +34,7 @@ import {
   XCircleIcon,
   ClockIcon,
   FileText,
+  Sparkles,
 } from "lucide-react";
 
 const statusIcons = {
@@ -55,6 +57,11 @@ export default function UploadStatusPage() {
   const [selectedPageId, setSelectedPageId] = useState<string | null>(null);
   const [selectedPageNumber, setSelectedPageNumber] = useState<number>(0);
   const [showUploadAttempts, setShowUploadAttempts] = useState(false);
+  const [showPageRegenerateDialog, setShowPageRegenerateDialog] =
+    useState(false);
+  const [showChapterRegenerateDialog, setShowChapterRegenerateDialog] =
+    useState(false);
+  const [pendingPageId, setPendingPageId] = useState<string | null>(null);
 
   const handleRequeue = async () => {
     try {
@@ -72,12 +79,52 @@ export default function UploadStatusPage() {
     }
   };
 
+  const handleRegeneratePageWithPrompt = (pageId: string) => {
+    setPendingPageId(pageId);
+    setShowPageRegenerateDialog(true);
+  };
+
+  const handleRegeneratePageConfirm = async (prompt: string | undefined) => {
+    if (!pendingPageId) return;
+    try {
+      await regeneratePageGenerationMutation.mutateAsync({
+        pageId: pendingPageId,
+        prompt,
+      });
+      setShowPageRegenerateDialog(false);
+      setPendingPageId(null);
+    } catch {
+      // Error handled by mutation
+    }
+  };
+
   const handleRegenerateChapter = async () => {
     if (!uploadStatus?.chapterId) {
       return;
     }
     try {
-      await regenerateChapterMutation.mutateAsync({ chapterId: uploadStatus.chapterId });
+      await regenerateChapterMutation.mutateAsync({
+        chapterId: uploadStatus.chapterId,
+      });
+    } catch {
+      // Error handled by mutation
+    }
+  };
+
+  const handleRegenerateChapterWithPrompt = () => {
+    setShowChapterRegenerateDialog(true);
+  };
+
+  const handleRegenerateChapterConfirm = async (prompt: string | undefined) => {
+    if (!uploadStatus?.chapterId) {
+      return;
+    }
+    try {
+      await regenerateChapterMutation.mutateAsync({
+        chapterId: uploadStatus.chapterId,
+        prompt,
+      });
+      setShowChapterRegenerateDialog(false);
     } catch {
       // Error handled by mutation
     }
@@ -137,23 +184,33 @@ export default function UploadStatusPage() {
                 View Attempts
               </Button>
               {uploadStatus.chapterId && (
-                <Button
-                  variant="outline"
-                  onClick={handleRegenerateChapter}
-                  disabled={regenerateChapterMutation.isPending}
-                >
-                  {regenerateChapterMutation.isPending ? (
-                    <>
-                      <Loader2Icon className="mr-2 h-4 w-4 animate-spin" />
-                      Regenerating Chapter...
-                    </>
-                  ) : (
-                    <>
-                      <RefreshCw className="mr-2 h-4 w-4" />
-                      Regenerate Chapter
-                    </>
-                  )}
-                </Button>
+                <>
+                  <Button
+                    variant="outline"
+                    onClick={handleRegenerateChapter}
+                    disabled={regenerateChapterMutation.isPending}
+                  >
+                    {regenerateChapterMutation.isPending ? (
+                      <>
+                        <Loader2Icon className="mr-2 h-4 w-4 animate-spin" />
+                        Regenerating...
+                      </>
+                    ) : (
+                      <>
+                        <RefreshCw className="mr-2 h-4 w-4" />
+                        Regenerate Chapter
+                      </>
+                    )}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={handleRegenerateChapterWithPrompt}
+                    disabled={regenerateChapterMutation.isPending}
+                  >
+                    <Sparkles className="mr-2 h-4 w-4" />
+                    Regenerate with Prompt
+                  </Button>
+                </>
               )}
               <Button
                 variant="outline"
@@ -265,28 +322,48 @@ export default function UploadStatusPage() {
                           <FileText className="mr-2 h-4 w-4" />
                           View Attempts
                         </Button>
-                        <div className="flex gap-2">
-                          {(page.status === "failed" || page.status === "complete") && (
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => handleRegeneratePage(page.id)}
-                              disabled={regeneratePageGenerationMutation.isPending}
-                              className="w-full"
-                              title="Regenerate page: Delete existing questions and generate new ones via LLM"
-                            >
-                              {regeneratePageGenerationMutation.isPending ? (
-                                <>
-                                  <Loader2Icon className="mr-2 h-4 w-4 animate-spin" />
-                                  Regenerating...
-                                </>
-                              ) : (
-                                <>
-                                  <RefreshCw className="mr-2 h-4 w-4" />
-                                  Regenerate Page
-                                </>
-                              )}
-                            </Button>
+                        <div className="flex flex-col gap-2">
+                          {(page.status === "failed" ||
+                            page.status === "complete") && (
+                            <>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleRegeneratePage(page.id)}
+                                disabled={
+                                  regeneratePageGenerationMutation.isPending
+                                }
+                                className="w-full"
+                                title="Regenerate page: Delete existing questions and generate new ones via LLM"
+                              >
+                                {regeneratePageGenerationMutation.isPending ? (
+                                  <>
+                                    <Loader2Icon className="mr-2 h-4 w-4 animate-spin" />
+                                    Regenerating...
+                                  </>
+                                ) : (
+                                  <>
+                                    <RefreshCw className="mr-2 h-4 w-4" />
+                                    Regenerate Page
+                                  </>
+                                )}
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() =>
+                                  handleRegeneratePageWithPrompt(page.id)
+                                }
+                                disabled={
+                                  regeneratePageGenerationMutation.isPending
+                                }
+                                className="w-full"
+                                title="Regenerate page with custom prompt"
+                              >
+                                <Sparkles className="mr-2 h-4 w-4" />
+                                Regenerate with Prompt
+                              </Button>
+                            </>
                           )}
                           {(page.status === "queued" ||
                             page.status === "generating" ||
@@ -339,6 +416,24 @@ export default function UploadStatusPage() {
             uploadId={uploadId}
             open={showUploadAttempts}
             onOpenChange={setShowUploadAttempts}
+          />
+
+          <RegeneratePromptDialog
+            open={showPageRegenerateDialog}
+            onOpenChange={setShowPageRegenerateDialog}
+            onConfirm={handleRegeneratePageConfirm}
+            title="Regenerate Page with Custom Prompt"
+            description="Delete existing questions and generate new ones using your custom prompt."
+            isLoading={regeneratePageGenerationMutation.isPending}
+          />
+
+          <RegeneratePromptDialog
+            open={showChapterRegenerateDialog}
+            onOpenChange={setShowChapterRegenerateDialog}
+            onConfirm={handleRegenerateChapterConfirm}
+            title="Regenerate Chapter with Custom Prompt"
+            description="Delete existing questions for all pages in this chapter and generate new ones using your custom prompt."
+            isLoading={regenerateChapterMutation.isPending}
           />
         </div>
       </div>
