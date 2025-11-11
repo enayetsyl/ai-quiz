@@ -6,10 +6,12 @@ export interface RequeuePageGenerationRequest {
 
 export interface RegeneratePageRequest {
   pageId: string;
+  prompt?: string;
 }
 
 export interface RegenerateChapterRequest {
   chapterId: string;
+  prompt?: string;
 }
 
 /**

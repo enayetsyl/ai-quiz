@@ -2,10 +2,10 @@ import queue from "../../lib/queue";
 import prisma from "../../lib";
 import { HttpError } from "../../lib/http";
 
-export async function enqueuePageGeneration(pageId: string) {
+export async function enqueuePageGeneration(pageId: string, customPrompt?: string) {
   await queue.generationQueue.add(
     "generate:page",
-    { pageId },
+    { pageId, customPrompt },
     { attempts: 3, backoff: { type: "exponential", delay: 5000 } }
   );
 }
@@ -23,7 +23,7 @@ export async function requeuePageGeneration(pageId: string) {
   await enqueuePageGeneration(pageId);
 }
 
-export async function regeneratePage(pageId: string) {
+export async function regeneratePage(pageId: string, customPrompt?: string) {
   if (!pageId) {
     throw new HttpError("pageId is required", 400);
   }
@@ -37,10 +37,10 @@ export async function regeneratePage(pageId: string) {
   await prisma.question.deleteMany({ where: { pageId } });
 
   // Enqueue page generation which will send to LLM and create new questions
-  await enqueuePageGeneration(pageId);
+  await enqueuePageGeneration(pageId, customPrompt);
 }
 
-export async function regenerateChapter(chapterId: string) {
+export async function regenerateChapter(chapterId: string, customPrompt?: string) {
   if (!chapterId) {
     throw new HttpError("chapterId is required", 400);
   }
@@ -78,8 +78,9 @@ export async function regenerateChapter(chapterId: string) {
 
   // Enqueue generation for all pages in this chapter
   // This will send each page to LLM and generate new questions
+  // Use the same custom prompt for all pages in the chapter
   for (const page of pages) {
-    await enqueuePageGeneration(page.id);
+    await enqueuePageGeneration(page.id, customPrompt);
   }
 
   return { pagesCount: pages.length };
