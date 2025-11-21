@@ -1,5 +1,6 @@
 import crypto from "crypto";
 import { prisma } from "../../lib";
+import { PrismaClient } from "@prisma/client";
 import {
   uploadBuffer,
   getPresignedUrlForKey,
@@ -128,7 +129,7 @@ export async function listUploads() {
 
   // Calculate status for each upload based on pages
   const uploadsWithStatus = await Promise.all(
-    uploads.map(async (upload) => {
+    uploads.map(async (upload: (typeof uploads)[0]) => {
       const pages = await prisma.page.findMany({
         where: { uploadId: upload.id },
         select: { status: true },
@@ -168,7 +169,7 @@ export async function getUploadStatus(uploadId: string) {
 
   // Build presigned URLs for each page
   const pages = await Promise.all(
-    upload.pages.map(async (p) => {
+    upload.pages.map(async (p: (typeof upload.pages)[0]) => {
       const pngUrl = p.s3PngKey
         ? await getPresignedUrlForKey(p.s3PngKey)
         : null;
@@ -258,7 +259,7 @@ export async function getUploadAttempts(uploadId: string) {
     where: { uploadId },
     select: { id: true },
   });
-  const pageIds = pages.map((p) => p.id);
+  const pageIds = pages.map((p: { id: string }) => p.id);
   const attempts = await prisma.pageGenerationAttempt.findMany({
     where: { pageId: { in: pageIds } },
     orderBy: { createdAt: "desc" },
@@ -409,15 +410,15 @@ export async function deleteChapter(chapterId: string) {
   const s3KeysToDelete: string[] = [];
 
   // Add PDF keys from uploads
-  uploads.forEach((upload) => {
+  uploads.forEach((upload: (typeof uploads)[0]) => {
     if (upload.s3PdfKey) {
       s3KeysToDelete.push(upload.s3PdfKey);
     }
   });
 
   // Add PNG and thumbnail keys from pages
-  uploads.forEach((upload) => {
-    upload.pages.forEach((page) => {
+  uploads.forEach((upload: (typeof uploads)[0]) => {
+    upload.pages.forEach((page: (typeof upload.pages)[0]) => {
       if (page.s3PngKey) {
         s3KeysToDelete.push(page.s3PngKey);
       }
@@ -434,25 +435,37 @@ export async function deleteChapter(chapterId: string) {
 
   // Delete all related data in a transaction
   // Order matters: delete in reverse dependency order to avoid foreign key conflicts
-  await prisma.$transaction(async (tx) => {
-    // 1. Delete QuestionBank entries (published questions) for this chapter
-    await tx.questionBank.deleteMany({
-      where: { chapterId },
-    });
+  await prisma.$transaction(
+    async (
+      tx: Omit<
+        PrismaClient,
+        | "$connect"
+        | "$disconnect"
+        | "$on"
+        | "$transaction"
+        | "$use"
+        | "$extends"
+      >
+    ) => {
+      // 1. Delete QuestionBank entries (published questions) for this chapter
+      await tx.questionBank.deleteMany({
+        where: { chapterId },
+      });
 
-    // 2. Delete Uploads for this chapter (cascades to pages, questions, attempts)
-    await tx.upload.deleteMany({
-      where: { chapterId },
-    });
+      // 2. Delete Uploads for this chapter (cascades to pages, questions, attempts)
+      await tx.upload.deleteMany({
+        where: { chapterId },
+      });
 
-    // 3. Delete any remaining Questions directly linked to this chapter
-    await tx.question.deleteMany({
-      where: { chapterId },
-    });
+      // 3. Delete any remaining Questions directly linked to this chapter
+      await tx.question.deleteMany({
+        where: { chapterId },
+      });
 
-    // 4. Delete the chapter itself
-    await tx.chapter.delete({
-      where: { id: chapterId },
-    });
-  });
+      // 4. Delete the chapter itself
+      await tx.chapter.delete({
+        where: { id: chapterId },
+      });
+    }
+  );
 }

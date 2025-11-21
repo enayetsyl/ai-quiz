@@ -2,7 +2,10 @@ import queue from "../../lib/queue";
 import prisma from "../../lib";
 import { HttpError } from "../../lib/http";
 
-export async function enqueuePageGeneration(pageId: string, customPrompt?: string) {
+export async function enqueuePageGeneration(
+  pageId: string,
+  customPrompt?: string
+) {
   await queue.generationQueue.add(
     "generate:page",
     { pageId, customPrompt },
@@ -40,7 +43,10 @@ export async function regeneratePage(pageId: string, customPrompt?: string) {
   await enqueuePageGeneration(pageId, customPrompt);
 }
 
-export async function regenerateChapter(chapterId: string, customPrompt?: string) {
+export async function regenerateChapter(
+  chapterId: string,
+  customPrompt?: string
+) {
   if (!chapterId) {
     throw new HttpError("chapterId is required", 400);
   }
@@ -57,7 +63,7 @@ export async function regenerateChapter(chapterId: string, customPrompt?: string
     select: { id: true },
   });
 
-  const uploadIds = uploads.map((u) => u.id);
+  const uploadIds = uploads.map((u: { id: string }) => u.id);
 
   if (uploadIds.length === 0) {
     throw new HttpError("No uploads found for this chapter", 404);
