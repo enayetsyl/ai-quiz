@@ -217,7 +217,7 @@ export function QuestionsReview() {
           <CardTitle>Filters</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid gap-4 md:grid-cols-4">
+          <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 md:grid-cols-4">
             <Skeleton className="h-10 w-full" />
             <Skeleton className="h-10 w-full" />
             <Skeleton className="h-10 w-full" />
@@ -301,7 +301,7 @@ export function QuestionsReview() {
           <CardTitle>Filters</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid gap-4 md:grid-cols-4">
+          <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 md:grid-cols-4">
             <div>
               <label className="text-sm font-medium mb-2 block">Status</label>
               <Select
@@ -403,11 +403,11 @@ export function QuestionsReview() {
       {selectedQuestionIds.size > 0 && (
         <Card className="mb-6">
           <CardContent className="py-4">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
               <span className="text-sm font-medium">
                 {selectedQuestionIds.size} question(s) selected
               </span>
-              <div className="flex gap-2">
+              <div className="flex flex-wrap gap-2">
                 <Button
                   size="sm"
                   variant="outline"
@@ -452,14 +452,16 @@ export function QuestionsReview() {
                   variant="outline"
                   onClick={() => downloadSelected("full")}
                 >
-                  <Download className="h-4 w-4 mr-1" /> Word (Full)
+                  <Download className="h-4 w-4 sm:mr-1" />
+                  <span className="hidden sm:inline">Word (Full)</span>
                 </Button>
                 <Button
                   size="sm"
                   variant="outline"
                   onClick={() => downloadSelected("stem_options")}
                 >
-                  <Download className="h-4 w-4 mr-1" /> Word (Q + Options)
+                  <Download className="h-4 w-4 sm:mr-1" />
+                  <span className="hidden sm:inline">Word (Q + Options)</span>
                 </Button>
               </div>
             </div>
@@ -474,186 +476,193 @@ export function QuestionsReview() {
         <CardContent>
           {questions && questions.length > 0 ? (
             <>
-              <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="w-12">
-                        <Checkbox
-                          checked={allSelected}
-                          onCheckedChange={handleSelectAll}
-                          aria-label="Select all"
-                        />
-                      </TableHead>
-                      {/* <TableHead>ID</TableHead> */}
-                      <TableHead>Stem</TableHead>
-                      <TableHead>Options</TableHead>
-                      <TableHead>Correct</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Taxonomy</TableHead>
-                      <TableHead>Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {questions.map((question) => {
-                      const StatusIcon = statusIcons[question.status];
-                      const isLocked = question.isLockedAfterAdd;
-                      const isSelected = selectedQuestionIds.has(question.id);
+              <div className="overflow-x-auto -mx-4 sm:mx-0">
+                <div className="inline-block min-w-full align-middle px-4 sm:px-0">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="w-12">
+                          <Checkbox
+                            checked={allSelected}
+                            onCheckedChange={handleSelectAll}
+                            aria-label="Select all"
+                          />
+                        </TableHead>
+                        {/* <TableHead>ID</TableHead> */}
+                        <TableHead className="min-w-[200px]">Stem</TableHead>
+                        <TableHead className="min-w-[180px]">Options</TableHead>
+                        <TableHead className="min-w-[80px]">Correct</TableHead>
+                        <TableHead className="min-w-[120px]">Status</TableHead>
+                        <TableHead className="min-w-[150px]">Taxonomy</TableHead>
+                        <TableHead className="min-w-[200px]">Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {questions.map((question) => {
+                        const StatusIcon = statusIcons[question.status];
+                        const isLocked = question.isLockedAfterAdd;
+                        const isSelected = selectedQuestionIds.has(question.id);
 
-                      return (
-                        <TableRow
-                          key={question.id}
-                          className="cursor-pointer hover:bg-muted/50"
-                          onClick={(e) => {
-                            // Don't open modal if clicking checkbox or buttons
-                            if (
-                              (e.target as HTMLElement).closest(
-                                'input[type="checkbox"], button'
-                              )
-                            ) {
-                              return;
-                            }
-                            setViewingQuestion(question.id);
-                          }}
-                        >
-                          <TableCell onClick={(e) => e.stopPropagation()}>
-                            <Checkbox
-                              checked={isSelected}
-                              onCheckedChange={(checked) =>
-                                handleSelectQuestion(
-                                  question.id,
-                                  checked as boolean
+                        return (
+                          <TableRow
+                            key={question.id}
+                            className="cursor-pointer hover:bg-muted/50"
+                            onClick={(e) => {
+                              // Don't open modal if clicking checkbox or buttons
+                              if (
+                                (e.target as HTMLElement).closest(
+                                  'input[type="checkbox"], button'
                                 )
+                              ) {
+                                return;
                               }
-                              aria-label={`Select ${question.id}`}
-                            />
-                          </TableCell>
-                          {/* <TableCell className="font-mono text-xs">
-                            {question.id.slice(0, 8)}...
-                          </TableCell> */}
-                          <TableCell className="max-w-lg">
-                            <div className="truncate text-xs">
-                              {question.stem}
-                            </div>
-                            {isLocked && (
-                              <Badge
-                                variant="secondary"
-                                className="mt-1 text-xs"
-                              >
-                                Locked
+                              setViewingQuestion(question.id);
+                            }}
+                          >
+                            <TableCell onClick={(e) => e.stopPropagation()}>
+                              <Checkbox
+                                checked={isSelected}
+                                onCheckedChange={(checked) =>
+                                  handleSelectQuestion(
+                                    question.id,
+                                    checked as boolean
+                                  )
+                                }
+                                aria-label={`Select ${question.id}`}
+                              />
+                            </TableCell>
+                            {/* <TableCell className="font-mono text-xs">
+                              {question.id.slice(0, 8)}...
+                            </TableCell> */}
+                            <TableCell className="max-w-lg">
+                              <div className="truncate text-xs sm:text-sm">
+                                {question.stem}
+                              </div>
+                              {isLocked && (
+                                <Badge
+                                  variant="secondary"
+                                  className="mt-1 text-xs"
+                                >
+                                  Locked
+                                </Badge>
+                              )}
+                            </TableCell>
+                            <TableCell className="max-w-md text-xs">
+                              <div className="space-y-1">
+                                <div className="truncate">A: {question.optionA.slice(0, 60)}</div>
+                                <div className="truncate">B: {question.optionB.slice(0, 60)}</div>
+                                <div className="truncate">C: {question.optionC.slice(0, 60)}</div>
+                                <div className="truncate">D: {question.optionD.slice(0, 60)}</div>
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <Badge variant="outline" className="text-xs">
+                                {question.correctOption.toUpperCase()}
                               </Badge>
-                            )}
-                          </TableCell>
-                          <TableCell className="max-w-md text-xs">
-                            <div className="space-y-1">
-                              <div>A: {question.optionA.slice(0, 60)}</div>
-                              <div>B: {question.optionB.slice(0, 60)}</div>
-                              <div>C: {question.optionC.slice(0, 60)}</div>
-                              <div>D: {question.optionD.slice(0, 60)}</div>
-                            </div>
-                          </TableCell>
-                          <TableCell>
-                            <Badge variant="outline">
-                              {question.correctOption.toUpperCase()}
-                            </Badge>
-                          </TableCell>
-                          <TableCell>
-                            <div className="flex items-center gap-2">
-                              <StatusIcon className="h-4 w-4" />
-                              <Badge
-                                className="capitalize"
-                                variant={statusColors[question.status]}
-                              >
-                                {question.status.replace("_", " ")}
-                              </Badge>
-                            </div>
-                          </TableCell>
-                          <TableCell className="max-w-[20px] text-xs">
-                            {question.class?.displayName} <br />{" "}
-                            {question.subject?.name} <br />{" "}
-                            {question.chapter?.name}
-                            <br />
-                            Page: {question.page?.pageNumber} <br />
-                            Line: {question.lineIndex}
-                          </TableCell>
-                          <TableCell onClick={(e) => e.stopPropagation()}>
-                            <div className="flex gap-2">
-                              {question.page?.pngUrl && (
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex items-center gap-2">
+                                <StatusIcon className="h-4 w-4 flex-shrink-0" />
+                                <Badge
+                                  className="capitalize text-xs"
+                                  variant={statusColors[question.status]}
+                                >
+                                  {question.status.replace("_", " ")}
+                                </Badge>
+                              </div>
+                            </TableCell>
+                            <TableCell className="max-w-[20px] text-xs">
+                              <div className="space-y-0.5">
+                                <div>{question.class?.displayName}</div>
+                                <div>{question.subject?.name}</div>
+                                <div>{question.chapter?.name}</div>
+                                <div>Page: {question.page?.pageNumber}</div>
+                                <div>Line: {question.lineIndex}</div>
+                              </div>
+                            </TableCell>
+                            <TableCell onClick={(e) => e.stopPropagation()}>
+                              <div className="flex gap-1 sm:gap-2 flex-wrap">
+                                {question.page?.pngUrl && (
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    onClick={() =>
+                                      setViewingImage(
+                                        question.page?.pngUrl || null
+                                      )
+                                    }
+                                    className="h-8 w-8 p-0"
+                                  >
+                                    <Eye className="h-4 w-4" />
+                                  </Button>
+                                )}
                                 <Button
                                   size="sm"
                                   variant="ghost"
-                                  onClick={() =>
-                                    setViewingImage(
-                                      question.page?.pngUrl || null
-                                    )
-                                  }
+                                  onClick={() => setEditingQuestion(question.id)}
+                                  disabled={isLocked}
+                                  className="text-xs sm:text-sm h-8 sm:h-9 px-2 sm:px-3"
                                 >
-                                  <Eye className="h-4 w-4" />
+                                  Edit
                                 </Button>
-                              )}
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                onClick={() => setEditingQuestion(question.id)}
-                                disabled={isLocked}
-                              >
-                                Edit
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                aria-label="Download (Full)"
-                                title="Download (Full)"
-                                onClick={async () => {
-                                  const blob = await (
-                                    await import("@/lib/api/question/question")
-                                  ).questionApi.exportQuestions({
-                                    ids: [question.id],
-                                    variant: "full",
-                                  });
-                                  const url = URL.createObjectURL(blob);
-                                  const a = document.createElement("a");
-                                  a.href = url;
-                                  a.download = `question_${question.id}.doc`;
-                                  document.body.appendChild(a);
-                                  a.click();
-                                  a.remove();
-                                  URL.revokeObjectURL(url);
-                                }}
-                              >
-                                <Download className="h-4 w-4" />
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                aria-label="Download (Q + Options)"
-                                title="Download (Q + Options)"
-                                onClick={async () => {
-                                  const blob = await (
-                                    await import("@/lib/api/question/question")
-                                  ).questionApi.exportQuestions({
-                                    ids: [question.id],
-                                    variant: "stem_options",
-                                  });
-                                  const url = URL.createObjectURL(blob);
-                                  const a = document.createElement("a");
-                                  a.href = url;
-                                  a.download = `question_${question.id}_qo.doc`;
-                                  document.body.appendChild(a);
-                                  a.click();
-                                  a.remove();
-                                  URL.revokeObjectURL(url);
-                                }}
-                              >
-                                <Download className="h-4 w-4" />
-                              </Button>
-                            </div>
-                          </TableCell>
-                        </TableRow>
-                      );
-                    })}
-                  </TableBody>
-                </Table>
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  aria-label="Download (Full)"
+                                  title="Download (Full)"
+                                  onClick={async () => {
+                                    const blob = await (
+                                      await import("@/lib/api/question/question")
+                                    ).questionApi.exportQuestions({
+                                      ids: [question.id],
+                                      variant: "full",
+                                    });
+                                    const url = URL.createObjectURL(blob);
+                                    const a = document.createElement("a");
+                                    a.href = url;
+                                    a.download = `question_${question.id}.doc`;
+                                    document.body.appendChild(a);
+                                    a.click();
+                                    a.remove();
+                                    URL.revokeObjectURL(url);
+                                  }}
+                                  className="h-8 w-8 p-0"
+                                >
+                                  <Download className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  aria-label="Download (Q + Options)"
+                                  title="Download (Q + Options)"
+                                  onClick={async () => {
+                                    const blob = await (
+                                      await import("@/lib/api/question/question")
+                                    ).questionApi.exportQuestions({
+                                      ids: [question.id],
+                                      variant: "stem_options",
+                                    });
+                                    const url = URL.createObjectURL(blob);
+                                    const a = document.createElement("a");
+                                    a.href = url;
+                                    a.download = `question_${question.id}_qo.doc`;
+                                    document.body.appendChild(a);
+                                    a.click();
+                                    a.remove();
+                                    URL.revokeObjectURL(url);
+                                  }}
+                                  className="h-8 w-8 p-0"
+                                >
+                                  <Download className="h-4 w-4" />
+                                </Button>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                </div>
               </div>
               {pagination && (
                 <div className="mt-6">

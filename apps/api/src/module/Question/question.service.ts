@@ -442,8 +442,8 @@ export function generateQuestionsExportHtml(
 
   const section = items
     .map(
-      (q, idx) =>
-        `<div style=\"margin-bottom:20px;\">` +
+      (q: (typeof items)[0], idx: number) =>
+        `<div style="margin-bottom:20px;">` +
         `<h3 style=\"margin:0 0 8px 0;\">${idx + 1}. ${escapeHtml(
           q.stem
         )}</h3>` +

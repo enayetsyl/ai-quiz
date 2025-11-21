@@ -67,9 +67,9 @@ export function QuestionDetailModal({
   return (
     <>
       <Dialog open={!!questionId} onOpenChange={(open) => !open && onClose()}>
-        <DialogContent className="max-w-7xl sm:max-w-7xl! w-[95vw] max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-[95vw] sm:max-w-2xl md:max-w-4xl lg:max-w-6xl xl:max-w-7xl max-h-[90vh] overflow-y-auto p-4 sm:p-6">
           <DialogHeader>
-            <DialogTitle>Question Details</DialogTitle>
+            <DialogTitle className="text-base sm:text-lg">Question Details</DialogTitle>
           </DialogHeader>
           {isLoading ? (
             <div className="py-8">
@@ -80,8 +80,8 @@ export function QuestionDetailModal({
               <p className="text-muted-foreground">Question not found</p>
             </div>
           ) : (
-            <div className="space-y-6 mt-4">
-              <div className="space-y-6">
+            <div className="space-y-4 sm:space-y-6 mt-2 sm:mt-4">
+              <div className="space-y-4 sm:space-y-6">
                 <div>
                   <label className="text-sm font-medium text-muted-foreground">
                     Question ID
@@ -122,7 +122,7 @@ export function QuestionDetailModal({
                   <label className="text-sm font-medium text-muted-foreground">
                     Stem
                   </label>
-                  <p className="mt-2">{question.stem}</p>
+                  <p className="mt-2 text-sm sm:text-base break-words">{question.stem}</p>
                 </div>
 
                 <div>
@@ -135,44 +135,44 @@ export function QuestionDetailModal({
                         variant={
                           question.correctOption === "a" ? "default" : "outline"
                         }
-                        className="min-w-8 capitalize"
+                        className="min-w-8 capitalize flex-shrink-0"
                       >
                         A
                       </Badge>
-                      <p className="flex-1">{question.optionA}</p>
+                      <p className="flex-1 text-sm sm:text-base break-words">{question.optionA}</p>
                     </div>
                     <div className="flex items-start gap-2">
                       <Badge
                         variant={
                           question.correctOption === "b" ? "default" : "outline"
                         }
-                        className="min-w-8"
+                        className="min-w-8 flex-shrink-0"
                       >
                         B
                       </Badge>
-                      <p className="flex-1">{question.optionB}</p>
+                      <p className="flex-1 text-sm sm:text-base break-words">{question.optionB}</p>
                     </div>
                     <div className="flex items-start gap-2">
                       <Badge
                         variant={
                           question.correctOption === "c" ? "default" : "outline"
                         }
-                        className="min-w-8"
+                        className="min-w-8 flex-shrink-0"
                       >
                         C
                       </Badge>
-                      <p className="flex-1">{question.optionC}</p>
+                      <p className="flex-1 text-sm sm:text-base break-words">{question.optionC}</p>
                     </div>
                     <div className="flex items-start gap-2">
                       <Badge
                         variant={
                           question.correctOption === "d" ? "default" : "outline"
                         }
-                        className="min-w-8"
+                        className="min-w-8 flex-shrink-0"
                       >
                         D
                       </Badge>
-                      <p className="flex-1">{question.optionD}</p>
+                      <p className="flex-1 text-sm sm:text-base break-words">{question.optionD}</p>
                     </div>
                   </div>
                 </div>
@@ -182,7 +182,7 @@ export function QuestionDetailModal({
                     <label className="text-sm font-medium text-muted-foreground">
                       Explanation
                     </label>
-                    <p className="mt-2">{question.explanation}</p>
+                    <p className="mt-2 text-sm sm:text-base break-words">{question.explanation}</p>
                   </div>
                 )}
 
@@ -195,9 +195,11 @@ export function QuestionDetailModal({
                         onClick={() =>
                           setViewingImage(question.page?.pngUrl || null)
                         }
+                        className="text-xs sm:text-sm"
                       >
-                        <Eye className="mr-2 h-4 w-4" />
-                        View Page Image
+                        <Eye className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4" />
+                        <span className="hidden sm:inline">View Page Image</span>
+                        <span className="sm:hidden">View Image</span>
                       </Button>
                     )}
                     <Button
@@ -207,6 +209,7 @@ export function QuestionDetailModal({
                       disabled={
                         question.isLockedAfterAdd || bulkAction.isPending
                       }
+                      className="text-xs sm:text-sm"
                     >
                       Edit Question
                     </Button>
@@ -228,8 +231,9 @@ export function QuestionDetailModal({
                           bulkAction.isPending ||
                           question.status === "approved"
                         }
+                        className="text-xs sm:text-sm"
                       >
-                        <CheckCircle2 className="mr-2 h-4 w-4" />
+                        <CheckCircle2 className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4" />
                         Approve
                       </Button>
                       <Button
@@ -245,8 +249,9 @@ export function QuestionDetailModal({
                           bulkAction.isPending ||
                           question.status === "rejected"
                         }
+                        className="text-xs sm:text-sm"
                       >
-                        <XCircle className="mr-2 h-4 w-4" />
+                        <XCircle className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4" />
                         Reject
                       </Button>
                       <Button
@@ -262,8 +267,9 @@ export function QuestionDetailModal({
                           bulkAction.isPending ||
                           question.status === "needs_fix"
                         }
+                        className="text-xs sm:text-sm"
                       >
-                        <AlertCircle className="mr-2 h-4 w-4" />
+                        <AlertCircle className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4" />
                         Needs Fix
                       </Button>
                       <Button
@@ -273,6 +279,7 @@ export function QuestionDetailModal({
                         disabled={
                           question.isLockedAfterAdd || bulkAction.isPending
                         }
+                        className="text-xs sm:text-sm"
                       >
                         Delete
                       </Button>
@@ -285,16 +292,18 @@ export function QuestionDetailModal({
                           bulkAction.isPending ||
                           question.status !== "approved"
                         }
+                        className="text-xs sm:text-sm"
                       >
-                        Publish to Bank
+                        <span className="hidden sm:inline">Publish to Bank</span>
+                        <span className="sm:hidden">Publish</span>
                       </Button>
                     </div>
                   </div>
                 </div>
               </div>
 
-              <div className="border-t pt-6 space-y-6">
-                <h3 className="text-lg font-semibold mb-4">Metadata</h3>
+              <div className="border-t pt-4 sm:pt-6 space-y-4 sm:space-y-6">
+                <h3 className="text-base sm:text-lg font-semibold mb-3 sm:mb-4">Metadata</h3>
 
                 {/* First row: Class, Subject, Chapter */}
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">

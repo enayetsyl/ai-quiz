@@ -14,9 +14,9 @@ export const requeuePageGeneration = async (req: Request, res: Response) => {
 };
 
 export const regeneratePage = async (req: Request, res: Response) => {
-  const { pageId } = req.body as { pageId: string };
+  const { pageId, prompt } = req.body as { pageId: string; prompt?: string };
 
-  await service.regeneratePage(pageId);
+  await service.regeneratePage(pageId, prompt);
 
   return sendResponse(res, {
     success: true,
@@ -25,9 +25,9 @@ export const regeneratePage = async (req: Request, res: Response) => {
 };
 
 export const regenerateChapter = async (req: Request, res: Response) => {
-  const { chapterId } = req.body as { chapterId: string };
+  const { chapterId, prompt } = req.body as { chapterId: string; prompt?: string };
 
-  const result = await service.regenerateChapter(chapterId);
+  const result = await service.regenerateChapter(chapterId, prompt);
 
   return sendResponse(res, {
     success: true,

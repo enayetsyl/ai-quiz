@@ -60,37 +60,50 @@ export async function exportQuestionBank(
     },
   });
 
-  const filenameBase = `question_bank_${new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-")}`;
+  const filenameBase = `question_bank_${new Date()
+    .toISOString()
+    .slice(0, 19)
+    .replace(/[:T]/g, "-")}`;
 
   const htmlHeader =
-    "<!DOCTYPE html><html><head><meta charset=\"utf-8\"><title>Question Bank</title></head><body>";
+    '<!DOCTYPE html><html><head><meta charset="utf-8"><title>Question Bank</title></head><body>';
   const htmlFooter = "</body></html>";
   const block = (label: string, value: string) =>
-    `<p><strong>${label}:</strong> ${value ? value.replace(/\n/g, "<br/>") : ""}</p>`;
+    `<p><strong>${label}:</strong> ${
+      value ? value.replace(/\n/g, "<br/>") : ""
+    }</p>`;
   const html = items
     .map(
-      (q, idx) =>
+      (q: (typeof items)[0], idx: number) =>
         `<div style=\"margin-bottom:20px;\">` +
-        `<h3 style=\"margin:0 0 8px 0;\">${idx + 1}. ${escapeHtml(q.stem)}</h3>` +
+        `<h3 style=\"margin:0 0 8px 0;\">${idx + 1}. ${escapeHtml(
+          q.stem
+        )}</h3>` +
         block("A", escapeHtml(q.optionA)) +
         block("B", escapeHtml(q.optionB)) +
         block("C", escapeHtml(q.optionC)) +
         block("D", escapeHtml(q.optionD)) +
         (query.variant === "full"
-          ?
-            block("Correct", escapeHtml(q.correctOption.toUpperCase())) +
+          ? block("Correct", escapeHtml(q.correctOption.toUpperCase())) +
             block("Explanation", escapeHtml(q.explanation)) +
             block(
               "Taxonomy",
-              `${escapeHtml(q.class?.displayName || "")} / ${escapeHtml(q.subject?.name || "")} / ${escapeHtml(q.chapter?.name || "")}`
+              `${escapeHtml(q.class?.displayName || "")} / ${escapeHtml(
+                q.subject?.name || ""
+              )} / ${escapeHtml(q.chapter?.name || "")}`
             )
           : "") +
         `</div>`
     )
     .join("");
   res.setHeader("Content-Type", "application/msword; charset=utf-8");
-  res.setHeader("Content-Disposition", `attachment; filename=\"${filenameBase}.doc\"`);
-  return res.send(`<!DOCTYPE html><html><head><meta charset=\"utf-8\"><title>Question Bank</title></head><body>${html}</body></html>`);
+  res.setHeader(
+    "Content-Disposition",
+    `attachment; filename=\"${filenameBase}.doc\"`
+  );
+  return res.send(
+    `<!DOCTYPE html><html><head><meta charset=\"utf-8\"><title>Question Bank</title></head><body>${html}</body></html>`
+  );
 }
 
 export default {
