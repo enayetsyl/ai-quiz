@@ -20,7 +20,12 @@ RUN npm ci
 COPY docker-entrypoint.sh /usr/local/bin/
 RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 
+# Copy all files (including Prisma schema)
 COPY . .
+
+# Generate Prisma Client before building TypeScript
+# This must happen after copying files but before building
+RUN npx prisma generate
 
 RUN npm run build
 

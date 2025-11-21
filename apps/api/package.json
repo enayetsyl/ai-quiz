@@ -8,7 +8,7 @@
     "dev": "concurrently --names \"SERVER,RASTERIZE,LLM\" --prefix-colors \"blue,green,yellow\" \"ts-node-dev --respawn --transpile-only --ignore-watch node_modules --poll src/server.ts\" \"npm:dev:rasterize\" \"npm:dev:llm\"",
     "dev:rasterize": "ts-node-dev --respawn --transpile-only --ignore-watch node_modules --poll src/jobs/rasterize.worker.ts",
     "dev:llm": "ts-node-dev --respawn --transpile-only --ignore-watch node_modules --poll src/jobs/llm.worker.ts",
-    "build": "tsc -p tsconfig.build.json",
+    "build": "prisma generate && tsc -p tsconfig.build.json",
     "start": "concurrently \"node dist/server.js\" \"npm:start:rasterize\" \"npm:start:llm\"",
     "start:rasterize": "node dist/jobs/rasterize.worker.js",
     "start:llm": "node dist/jobs/llm.worker.js",
